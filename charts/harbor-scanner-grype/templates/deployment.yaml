@@ -1,0 +1,87 @@
+{{- /*
+The adapter keeps jobs in memory, so exactly one replica is required.
+Refuse to render otherwise instead of silently deploying a broken state.
+*/}}
+{{- if gt (float64 .Values.replicaCount) (float64 1) }}
+{{- fail "replicaCount must be 1: the in-memory job store cannot be shared across replicas" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "harbor-scanner-grype.fullname" . }}
+  labels:
+    {{- include "harbor-scanner-grype.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "harbor-scanner-grype.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "harbor-scanner-grype.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podLabels }}
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "harbor-scanner-grype.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      # Pull the Grype DB into the emptyDir before the adapter starts so the
+      # first scan does not pay the download.
+      initContainers:
+        - name: grype-db
+          image: {{ include "harbor-scanner-grype.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+          command:
+            - /usr/bin/grype
+          args:
+            - db
+            - update
+          env:
+            {{- include "harbor-scanner-grype.dbEnv" . | nindent 10 }}
+          volumeMounts:
+            {{- include "harbor-scanner-grype.dbMount" . | nindent 10 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      containers:
+        - name: adapter
+          image: {{ include "harbor-scanner-grype.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+          env:
+            {{- include "harbor-scanner-grype.scannerEnv" . | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probePath }}
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probePath }}
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- include "harbor-scanner-grype.dbMount" . | nindent 12 }}
+      volumes:
+        - name: grype-db
+          emptyDir: {}

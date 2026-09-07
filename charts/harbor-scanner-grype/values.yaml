@@ -1,0 +1,73 @@
+# Default values for the harbor-scanner-grype chart.
+
+# Exactly one replica is required: the adapter uses an in-memory job store,
+# so Harbor must always poll the same instance. The chart refuses to render
+# with replicaCount > 1.
+replicaCount: 1
+
+image:
+  repository: harbor-scanner-grype
+  pullPolicy: IfNotPresent
+  # Overrides the appVersion when set.
+  tag: ""
+
+# Service port Harbor is registered against (adapter listens on :8080).
+service:
+  port: 8080
+
+# Path the liveness/readiness probes hit.
+probePath: /healthz
+
+# Where the Grype vulnerability database lives. Must be a writable emptyDir
+# so the DB (downloaded at startup) does not live on the read-only root FS.
+dbCacheDir: /tmp/grype-db
+
+# Adapter configuration. Each key maps to a SCANNER_* environment variable
+# (see internal/config). Values are rendered as strings.
+config:
+  apiAddr: ":8080"
+  scanTimeout: 5m
+  jobTTL: 1h
+  registryInsecureSkipTLS: false
+  registryUseHTTP: false
+  grypeDBAutoUpdate: false
+  preferCVE: true
+  logLevel: info
+
+# The adapter has no auth of its own; the ServiceAccount is for the cluster
+# network policy / pod identity, not for pulling images.
+serviceAccount:
+  # create a ServiceAccount
+  create: true
+  # name of the ServiceAccount to use; if not set, <fullname>.sa is used
+  name: ""
+  # annotations to add to the ServiceAccount
+  annotations: {}
+
+# Pod-level security context. fsGroup makes the emptyDir writable by the
+# non-root user that runs grype (it owns the DB cache).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context: non-root with a read-only root filesystem; the
+# only writable path is the grype-db emptyDir.
+securityContext:
+  allowPrivilegeEscalation: false
+  privileged: false
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  readOnlyRootFilesystem: true
+
+# Extra annotations / labels applied to the pod.
+podAnnotations: {}
+podLabels: {}
+
+# Container resources for the adapter (the grype-db initContainer inherits
+# none). Set requests explicitly on CPU-tight nodes.
+resources: {}

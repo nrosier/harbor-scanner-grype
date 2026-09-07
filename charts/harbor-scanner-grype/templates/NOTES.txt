@@ -1,0 +1,17 @@
+Harbor scanner adapter (Grype) deployed.
+
+1. Get the Service URL to register in Harbor:
+
+   kubectl get svc --namespace {{ .Release.Namespace }} {{ include "harbor-scanner-grype.fullname" . }}
+
+   URL: http://<service-name>.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+
+2. Register the adapter in Harbor:
+   - Scanner name: Grype
+   - Adapter type: os-package-vulnerability
+   - URL: the internal Service URL above
+
+Notes:
+- Exactly one replica is deployed (in-memory job store); the chart refuses replicaCount > 1.
+- The adapter runs non-root with a read-only root filesystem; the Grype DB lives on a writable emptyDir at {{ .Values.dbCacheDir }} and is fetched at startup via `grype db update`.
+- Configure via values.config (mapped to SCANNER_* environment variables).
