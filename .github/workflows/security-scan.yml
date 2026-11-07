@@ -194,7 +194,8 @@ jobs:
   report:
     name: Security issue tracking
     needs: [source, image]
-    if: always() && github.event_name == 'schedule'
+    # Manual dispatch also runs this job so it can be exercised before the weekly schedule.
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
