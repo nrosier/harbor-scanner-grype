@@ -93,6 +93,19 @@ Grype DB location env vars.
   value: {{ .Values.config.preferCVE | quote }}
 - name: SCANNER_LOG_LEVEL
   value: {{ .Values.config.logLevel | quote }}
+- name: SCANNER_WORKER_CONCURRENCY
+  value: {{ .Values.config.workerConcurrency | quote }}
+- name: SCANNER_SYFT_PATH
+  value: {{ .Values.config.syftPath | quote }}
+# Syft needs writable paths under the read-only root filesystem. The image is
+# distroless (no shell to mkdir), so TMPDIR is the volume root itself; Syft
+# creates its cache dir on demand and falls back to in-memory on failure.
+- name: TMPDIR
+  value: {{ .Values.dbCacheDir | quote }}
+- name: SYFT_CACHE_DIR
+  value: {{ printf "%s/syft-cache" (.Values.dbCacheDir | trimSuffix "/") | quote }}
+- name: SYFT_CHECK_FOR_APP_UPDATE
+  value: "false"
 {{ include "harbor-scanner-grype.dbEnv" . }}
 {{- end -}}
 

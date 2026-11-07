@@ -3,7 +3,10 @@
 // specific to Grype; it is the contract Harbor speaks to every adapter.
 package harbor
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // MIME types Harbor and the adapter exchange.
 const (
@@ -15,10 +18,25 @@ const (
 	// compatibility. Both share the same JSON shape (ScanReport).
 	MimeTypeSecurityVulnReport = "application/vnd.security.vulnerability.report; version=1.1"
 	MimeTypeLegacyVulnReport   = "application/vnd.scanner.adapter.vuln.report.harbor+json; version=1.0"
+	// SBOM report envelope (scanner spec v1.2). Harbor only consumes the
+	// SPDX media type inside it.
+	MimeTypeSecuritySBOMReport = "application/vnd.security.sbom.report+json; version=1.0"
 	// Envelope types.
 	MimeTypeMetadata     = "application/vnd.scanner.adapter.metadata+json; version=1.0"
 	MimeTypeScanResponse = "application/vnd.scanner.adapter.scan.response+json; version=1.0"
 	MimeTypeError        = "application/vnd.scanner.adapter.error; version=1.0"
+)
+
+// MediaTypeSPDX is the only SBOM media type this adapter produces.
+const MediaTypeSPDX = "application/spdx+json"
+
+// SupportedSBOMMediaTypes lists the SBOM media types the adapter can emit.
+var SupportedSBOMMediaTypes = []string{MediaTypeSPDX}
+
+// Capability types (scanner spec v1.2).
+const (
+	CapabilityTypeVulnerability = "vulnerability"
+	CapabilityTypeSBOM          = "sbom"
 )
 
 // Severity values as Harbor expects them (src/pkg/scan/vuln/severity.go).
@@ -72,6 +90,21 @@ type Artifact struct {
 type ScanRequest struct {
 	Registry Registry `json:"registry"`
 	Artifact Artifact `json:"artifact"`
+	// EnabledCapabilities is set by Harbor >= 2.13 (spec v1.2); nil when
+	// absent, which means a plain vulnerability scan.
+	EnabledCapabilities []EnabledCapability `json:"enabled_capabilities,omitempty"`
+}
+
+// CapabilityAttributes carries SBOM-specific capability details.
+type CapabilityAttributes struct {
+	SBOMMediaTypes []string `json:"sbom_media_types"`
+}
+
+// EnabledCapability is one capability Harbor asks the adapter to run.
+type EnabledCapability struct {
+	Type              string                `json:"type"`
+	ProducesMimeTypes []string              `json:"produces_mime_types"`
+	Parameters        *CapabilityAttributes `json:"parameters,omitempty"`
 }
 
 // ScanResponse is the body of the 202 answer to POST /api/v1/scan.
@@ -88,9 +121,14 @@ type Scanner struct {
 
 // Capability advertises which artifact types can be turned into which
 // report types.
+//
+// Type and AdditionalAttributes are optional (spec v1.2) and omitted when
+// zero, so a legacy vulnerability capability marshals exactly as before.
 type Capability struct {
-	ConsumesMimeTypes []string `json:"consumes_mime_types"`
-	ProducesMimeTypes []string `json:"produces_mime_types"`
+	Type                 string                `json:"type,omitempty"`
+	ConsumesMimeTypes    []string              `json:"consumes_mime_types"`
+	ProducesMimeTypes    []string              `json:"produces_mime_types"`
+	AdditionalAttributes *CapabilityAttributes `json:"additional_attributes,omitempty"`
 }
 
 // ScannerAdapterMetadata is the body of GET /api/v1/metadata.
@@ -146,6 +184,17 @@ type ScanReport struct {
 	Scanner         Scanner             `json:"scanner"`
 	Severity        Severity            `json:"severity"`
 	Vulnerabilities []VulnerabilityItem `json:"vulnerabilities"`
+}
+
+// SBOMReport is the body of GET /api/v1/scan/{id}/report for
+// MimeTypeSecuritySBOMReport. SBOM holds the raw document (e.g. SPDX JSON)
+// and is embedded as a JSON object, not an escaped string.
+type SBOMReport struct {
+	GeneratedAt time.Time       `json:"generated_at"`
+	Artifact    Artifact        `json:"artifact"`
+	Scanner     Scanner         `json:"scanner"`
+	MediaType   string          `json:"media_type"`
+	SBOM        json.RawMessage `json:"sbom"`
 }
 
 // Error is the body of every non-2xx answer.

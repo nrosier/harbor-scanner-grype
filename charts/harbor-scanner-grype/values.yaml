@@ -22,6 +22,10 @@ probePath: /healthz
 # so the DB (downloaded at startup) does not live on the read-only root FS.
 dbCacheDir: /tmp/grype-db
 
+# Optional sizeLimit for the writable emptyDir (e.g. "2Gi"). It also holds
+# TMPDIR and the Syft cache. Unset by default (no limit).
+dbCacheSizeLimit: ""
+
 # Adapter configuration. Each key maps to a SCANNER_* environment variable
 # (see internal/config). Values are rendered as strings.
 config:
@@ -33,6 +37,12 @@ config:
   grypeDBAutoUpdate: false
   preferCVE: true
   logLevel: info
+  # Concurrent scan workers (SCANNER_WORKER_CONCURRENCY). Grype and Syft jobs
+  # are counted separately, so each worker pool slot is one job of either
+  # kind. Allow roughly 1.5-2 GiB of memory limit per concurrent scan.
+  workerConcurrency: 2
+  # Path to the syft binary (SCANNER_SYFT_PATH); matches the image ENV.
+  syftPath: /usr/bin/syft
 
 # The adapter has no auth of its own; the ServiceAccount is for the cluster
 # network policy / pod identity, not for pulling images.
@@ -69,5 +79,12 @@ podAnnotations: {}
 podLabels: {}
 
 # Container resources for the adapter (the grype-db initContainer inherits
-# none). Set requests explicitly on CPU-tight nodes.
+# none). Set requests explicitly on CPU-tight nodes. Size memory limits at
+# roughly 1.5-2 GiB per config.workerConcurrency slot (Grype and Syft scans).
 resources: {}
+
+# Seconds Kubernetes waits after SIGTERM before SIGKILL. Must cover the
+# adapter's worst-case shutdown: 25s scan drain + 5s post-cancel grace in
+# api.Server.Shutdown + 5s HTTP shutdown = 35s, plus a margin. Raise it if the
+# in-app budgets are raised.
+terminationGracePeriodSeconds: 45

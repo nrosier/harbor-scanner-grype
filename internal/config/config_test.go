@@ -12,8 +12,8 @@ func TestDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Config{Addr: ":8080", GrypePath: "grype", ScanTimeout: 5 * time.Minute, JobTTL: time.Hour,
-		CleanupInterval: 5 * time.Minute, PreferCVE: true, LogLevel: "info"}
+	want := Config{Addr: ":8080", GrypePath: "grype", SyftPath: "syft", ScanTimeout: 5 * time.Minute, JobTTL: time.Hour,
+		CleanupInterval: 5 * time.Minute, PreferCVE: true, LogLevel: "info", WorkerConcurrency: 2}
 	if c != want {
 		t.Fatalf("defaults = %+v, want %+v", c, want)
 	}
@@ -21,16 +21,16 @@ func TestDefaults(t *testing.T) {
 
 func TestOverrides(t *testing.T) {
 	c, err := Load(env(map[string]string{
-		"SCANNER_API_ADDR": ":9000", "SCANNER_GRYPE_PATH": "/opt/grype", "SCANNER_SCAN_TIMEOUT": "90s",
+		"SCANNER_API_ADDR": ":9000", "SCANNER_GRYPE_PATH": "/opt/grype", "SCANNER_SYFT_PATH": "/opt/syft", "SCANNER_SCAN_TIMEOUT": "90s",
 		"SCANNER_JOB_TTL": "0", "SCANNER_CLEANUP_INTERVAL": "1m", "SCANNER_REGISTRY_INSECURE_SKIP_TLS": "TRUE",
 		"SCANNER_REGISTRY_USE_HTTP": "1", "SCANNER_GRYPE_DB_AUTO_UPDATE": "true", "SCANNER_PREFER_CVE": "false",
-		"SCANNER_LOG_LEVEL": "debug",
+		"SCANNER_LOG_LEVEL": "debug", "SCANNER_WORKER_CONCURRENCY": "4",
 	}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Config{Addr: ":9000", GrypePath: "/opt/grype", ScanTimeout: 90 * time.Second, JobTTL: 0,
-		CleanupInterval: time.Minute, InsecureSkipTLS: true, UseHTTP: true, DBAutoUpdate: true, PreferCVE: false, LogLevel: "debug"}
+	want := Config{Addr: ":9000", GrypePath: "/opt/grype", SyftPath: "/opt/syft", ScanTimeout: 90 * time.Second, JobTTL: 0,
+		CleanupInterval: time.Minute, InsecureSkipTLS: true, UseHTTP: true, DBAutoUpdate: true, PreferCVE: false, LogLevel: "debug", WorkerConcurrency: 4}
 	if c != want {
 		t.Fatalf("got %+v, want %+v", c, want)
 	}
@@ -41,9 +41,22 @@ func TestInvalidValues(t *testing.T) {
 		"SCANNER_SCAN_TIMEOUT":               "soon",
 		"SCANNER_REGISTRY_INSECURE_SKIP_TLS": "yes",
 		"SCANNER_LOG_LEVEL":                  "loud",
+		"SCANNER_WORKER_CONCURRENCY":         "many",
 	} {
 		if _, err := Load(env(map[string]string{k: v})); err == nil {
 			t.Errorf("%s=%q must be rejected", k, v)
 		}
+	}
+}
+
+func TestWorkerConcurrencyRejectsNonPositive(t *testing.T) {
+	for _, v := range []string{"0", "-1", "-5", "1.5", "two", " 2"} {
+		if _, err := Load(env(map[string]string{"SCANNER_WORKER_CONCURRENCY": v})); err == nil {
+			t.Errorf("SCANNER_WORKER_CONCURRENCY=%q must be rejected", v)
+		}
+	}
+	c, err := Load(env(map[string]string{"SCANNER_WORKER_CONCURRENCY": "1"}))
+	if err != nil || c.WorkerConcurrency != 1 {
+		t.Fatalf("got %+v, %v", c, err)
 	}
 }
