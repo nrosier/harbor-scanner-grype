@@ -86,6 +86,13 @@ jobs:
 
       # STEP 4: Upload SARIF to Code Scanning. Each upload is skipped when its file is missing,
       # and skipped on fork pull_requests, where GITHUB_TOKEN cannot write security events.
+      - name: DEBUG condition parts
+        if: always()
+        run: |
+          echo "hash=[${{ hashFiles('grype-results.sarif') }}]"
+          echo "event=${{ github.event_name }} fork=[${{ github.event.pull_request.head.repo.fork }}]"
+          ls -la
+
       - name: Upload Grype SARIF to GitHub Security Tab
         if: ${{ always() && hashFiles('grype-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) }}
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
