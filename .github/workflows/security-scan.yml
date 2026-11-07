@@ -84,19 +84,19 @@ jobs:
           exit-code: "0"
           version: "v0.76.2"
 
-      # STEP 4: Upload SARIF to Code Scanning. Each upload is skipped when its file is missing,
+      # STEP 4: Upload SARIF to Code Scanning. Each upload is skipped when its scanner step did not succeed (a crashed scanner can leave an empty file, which hashFiles alone cannot detect) or its file is missing,
       # and skipped on cross-repository pull_requests (head repo differs from this one), where
       # GITHUB_TOKEN is read-only. Do not use head.repo.fork here: a repo that is itself a fork
       # reports fork=true even for same-repo PRs, which would skip every upload.
       - name: Upload Grype SARIF to GitHub Security Tab
-        if: ${{ always() && hashFiles('grype-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
+        if: ${{ always() && steps.grype-scan.outcome == 'success' && hashFiles('grype-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: "grype-results.sarif"
           category: "grype-engine"
 
       - name: Upload Trivy SARIF to GitHub Security Tab
-        if: ${{ always() && hashFiles('trivy-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
+        if: ${{ always() && steps.trivy-scan.outcome == 'success' && hashFiles('trivy-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: "trivy-results.sarif"
@@ -167,14 +167,14 @@ jobs:
           version: "v0.76.2"
 
       - name: Upload Grype image SARIF to GitHub Security Tab
-        if: ${{ always() && hashFiles('grype-image-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
+        if: ${{ always() && steps.grype-image-scan.outcome == 'success' && hashFiles('grype-image-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: "grype-image-results.sarif"
           category: "grype-image"
 
       - name: Upload Trivy image SARIF to GitHub Security Tab
-        if: ${{ always() && hashFiles('trivy-image-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
+        if: ${{ always() && steps.trivy-image-scan.outcome == 'success' && hashFiles('trivy-image-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: "trivy-image-results.sarif"
