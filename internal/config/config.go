@@ -23,6 +23,7 @@ const (
 	keyPreferCVE       = "SCANNER_PREFER_CVE"
 	keyLogLevel        = "SCANNER_LOG_LEVEL"
 	keyWorkerConc      = "SCANNER_WORKER_CONCURRENCY"
+	keyDBUpdateInt     = "SCANNER_DB_UPDATE_INTERVAL"
 )
 
 // Config of the adapter process.
@@ -38,6 +39,11 @@ type Config struct {
 	DBAutoUpdate    bool          // SCANNER_GRYPE_DB_AUTO_UPDATE, default false
 	PreferCVE       bool          // SCANNER_PREFER_CVE, default true
 	LogLevel        string        // SCANNER_LOG_LEVEL, default "info" (debug|info|warn|error)
+
+	// DBUpdateInterval is SCANNER_DB_UPDATE_INTERVAL, default 24h: how often
+	// `grype db update` runs after the startup update. 0 disables the periodic
+	// refresh (the startup update still runs); negative is an error.
+	DBUpdateInterval time.Duration
 
 	// WorkerConcurrency is SCANNER_WORKER_CONCURRENCY, default 2, >= 1:
 	// the maximum number of Grype/Syft subprocesses running at once.
@@ -61,6 +67,7 @@ func Load(getenv Getenv) (Config, error) {
 		PreferCVE:       true,
 		LogLevel:        "info",
 
+		DBUpdateInterval:  24 * time.Hour,
 		WorkerConcurrency: 2,
 	}
 
@@ -132,6 +139,17 @@ func Load(getenv Getenv) (Config, error) {
 			return Config{}, fmt.Errorf("%s: invalid value %q (want an integer >= 1)", keyWorkerConc, v)
 		}
 		c.WorkerConcurrency = n
+	}
+
+	if v := getenv(keyDBUpdateInt); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return Config{}, fmt.Errorf("%s: %w", keyDBUpdateInt, err)
+		}
+		if d < 0 {
+			return Config{}, fmt.Errorf("%s: must not be negative (use 0 to disable the periodic refresh)", keyDBUpdateInt)
+		}
+		c.DBUpdateInterval = d
 	}
 
 	return c, nil
