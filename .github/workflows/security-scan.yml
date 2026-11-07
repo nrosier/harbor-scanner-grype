@@ -1,0 +1,340 @@
+name: Security Scan (Syft + Grype + Trivy)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    # Weekly rescan on Mondays at 04:00 UTC for zero-day catching
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+# Default for every job; each job below widens this only for what it needs.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Only superseded pull_request runs are cancelled; pushes and schedules always finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # ------------------------------------------------------------------
+  # Scan the checked-out source tree.
+  # ------------------------------------------------------------------
+  source:
+    name: Scan source tree
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write # Required for SARIF upload to Code Scanning
+      # Required by the spec. No step below uses OIDC (no attestation or keyless signing),
+      # so this grant is currently unused.
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # STEP 1: Generate SBOM with Syft. The action also uploads the SBOM as a workflow
+      # artifact (upload-artifact defaults to true), so no separate upload step is needed.
+      - name: Generate SBOM (Syft)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: "."
+          format: "cyclonedx-json"
+          output-file: "sbom.cyclonedx.json"
+          syft-version: "v1.57.0"
+          artifact-name: "sbom-cyclonedx"
+          upload-artifact: true
+          upload-release-assets: false
+
+      # STEP 2: Scan the SBOM with Grype. The Grype step does not run when the SBOM step failed.
+      - name: Scan SBOM (Grype Engine)
+        id: grype-scan
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          sbom: "sbom.cyclonedx.json"
+          fail-build: false
+          output-format: "sarif"
+          output-file: "grype-results.sarif"
+          # Only sets the SARIF level (error vs warning). It does NOT filter results.
+          severity-cutoff: "high"
+          grype-version: "v0.121.2"
+
+      # STEP 3: Trivy filesystem scan (vulns, secrets, misconfigurations).
+      # if: always() so Trivy still runs and uploads when Grype fails.
+      - name: Scan source tree (Trivy Engine)
+        id: trivy-scan
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          scanners: "vuln,secret,misconfig"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          # Without this, trivy-action ignores severity for SARIF and uploads every severity.
+          limit-severities-for-sarif: true
+          # Findings never fail the job; the scheduled report job decides on issue tracking.
+          exit-code: "0"
+          version: "v0.76.2"
+
+      # STEP 4: Upload SARIF to Code Scanning. Each upload is skipped when its scanner step did not succeed (a crashed scanner can leave an empty file, which hashFiles alone cannot detect) or its file is missing,
+      # and skipped on cross-repository pull_requests (head repo differs from this one), where
+      # GITHUB_TOKEN is read-only. Do not use head.repo.fork here: a repo that is itself a fork
+      # reports fork=true even for same-repo PRs, which would skip every upload.
+      - name: Upload Grype SARIF to GitHub Security Tab
+        if: ${{ always() && steps.grype-scan.outcome == 'success' && hashFiles('grype-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: "grype-results.sarif"
+          category: "grype-engine"
+
+      - name: Upload Trivy SARIF to GitHub Security Tab
+        if: ${{ always() && steps.trivy-scan.outcome == 'success' && hashFiles('trivy-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: "trivy-results.sarif"
+          category: "trivy-engine"
+
+      # Keep the SARIF files as workflow artifacts for the scheduled report job and for debugging.
+      - name: Upload SARIF artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sarif-source
+          path: |
+            grype-results.sarif
+            trivy-results.sarif
+          if-no-files-found: ignore
+
+  # ------------------------------------------------------------------
+  # Scan the published container image. Independent of the source job, so a failure
+  # here does not block it (and the reverse).
+  # ------------------------------------------------------------------
+  image:
+    name: Scan published image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write # Required for SARIF upload to Code Scanning
+      # Required by the spec. No step below uses OIDC, so this grant is currently unused.
+      id-token: write
+    steps:
+      # The image is pulled by Syft (and by Trivy below). A pull failure fails this job visibly.
+      - name: Generate SBOM for published image (Syft)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: "ghcr.io/nrosier/harbor-scanner-grype:latest"
+          format: "cyclonedx-json"
+          output-file: "sbom.image.cyclonedx.json"
+          syft-version: "v1.57.0"
+          artifact-name: "sbom-image-cyclonedx"
+          upload-artifact: true
+          upload-release-assets: false
+
+      - name: Scan SBOM (Grype Engine)
+        id: grype-image-scan
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          sbom: "sbom.image.cyclonedx.json"
+          fail-build: false
+          output-format: "sarif"
+          output-file: "grype-image-results.sarif"
+          # Only sets the SARIF level (error vs warning). It does NOT filter results.
+          severity-cutoff: "high"
+          grype-version: "v0.121.2"
+
+      - name: Scan published image (Trivy Engine)
+        id: trivy-image-scan
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: "image"
+          image-ref: "ghcr.io/nrosier/harbor-scanner-grype:latest"
+          scanners: "vuln,secret"
+          format: "sarif"
+          output: "trivy-image-results.sarif"
+          severity: "CRITICAL,HIGH"
+          limit-severities-for-sarif: true
+          exit-code: "0"
+          version: "v0.76.2"
+
+      # No Code Scanning upload for the Grype image SARIF. Grype's image results use absolute
+      # in-image paths (e.g. //usr/bin/syft) with no uriBaseId, which Code Scanning rejects with
+      # "artifact location cannot be parsed to a file path". The results are kept as an
+      # artifact (sarif-image below) and counted by the report job instead.
+
+      - name: Upload Trivy image SARIF to GitHub Security Tab
+        if: ${{ always() && steps.trivy-image-scan.outcome == 'success' && hashFiles('trivy-image-results.sarif') != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: "trivy-image-results.sarif"
+          category: "trivy-image"
+
+      - name: Upload image SARIF artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sarif-image
+          path: |
+            grype-image-results.sarif
+            trivy-image-results.sarif
+          if-no-files-found: ignore
+
+  # ------------------------------------------------------------------
+  # Scheduled runs only: count High/Critical findings and keep one `security` issue in sync.
+  # ------------------------------------------------------------------
+  report:
+    name: Security issue tracking
+    needs: [source, image]
+    if: always() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      # github-script's require() below resolves against the workspace, so the repo is needed.
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # continue-on-error: a missing artifact (for example, the image job failed before
+      # uploading) must not stop the report. The script records which reports are missing.
+      - name: Download SARIF artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: "sarif-*"
+          path: sarif
+          merge-multiple: true
+
+      - name: Create or update security issue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { countFindings, readSarif } = require('./.github/scripts/security-report.js');
+
+            const TITLE = '🚨 Automated Security Report: High/Critical Vulnerabilities Detected';
+            const LABEL = 'security';
+            const { owner, repo } = context.repo;
+            const today = new Date().toISOString().slice(0, 10);
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const codeScanningUrl = `${context.serverUrl}/${owner}/${repo}/security/code-scanning`;
+
+            const sources = [
+              { name: 'Grype (source tree)', file: 'sarif/grype-results.sarif' },
+              { name: 'Trivy (source tree)', file: 'sarif/trivy-results.sarif' },
+              { name: 'Grype (published image)', file: 'sarif/grype-image-results.sarif' },
+              { name: 'Trivy (published image)', file: 'sarif/trivy-image-results.sarif' },
+            ];
+
+            const rows = [];
+            const docs = [];
+            const missing = [];
+            for (const s of sources) {
+              const r = readSarif(s.file);
+              if (!r.ok) {
+                missing.push(`${s.name}: ${r.error}`);
+                rows.push({ name: s.name, missing: true });
+                core.warning(`${s.name} report unavailable (${r.error})`);
+                continue;
+              }
+              docs.push(r.data);
+              rows.push({ name: s.name, counts: countFindings([r.data]) });
+            }
+            const total = countFindings(docs);
+            const hc = total.highOrCritical;
+            const incomplete = missing.length > 0;
+
+            // Stable signature of the per-report counts. Stored in the issue body so a later
+            // run can tell whether the counts changed.
+            const signature = JSON.stringify(rows.map(r => [r.name, r.missing ? null : r.counts.bySeverity]));
+
+            const table = [
+              '| Source | Critical | High | Medium | Low |',
+              '|---|---:|---:|---:|---:|',
+              ...rows.map(r => r.missing
+                ? `| ${r.name} | _report missing_ | | | |`
+                : `| ${r.name} | ${r.counts.bySeverity.critical} | ${r.counts.bySeverity.high} | ${r.counts.bySeverity.medium} | ${r.counts.bySeverity.low} |`),
+            ].join('\n');
+
+            const body = [
+              '## Multi-Engine Security Scan Summary',
+              '',
+              `Scheduled scan on **${today}** using Syft + Grype + Trivy.`,
+              '',
+              `**High/Critical findings: ${hc}**`,
+              '',
+              table,
+              '',
+              incomplete ? `> Some reports were missing, so these counts may be incomplete:\n> ${missing.join('\n> ')}\n` : '',
+              `Workflow run: ${runUrl}`,
+              '',
+              `Itemized alerts: ${codeScanningUrl}`,
+              '',
+              `<!-- signature: ${signature} -->`,
+            ].join('\n');
+
+            async function ensureLabel() {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: LABEL });
+              } catch (err) {
+                if (err.status !== 404) throw err;
+                await github.rest.issues.createLabel({
+                  owner, repo, name: LABEL, color: 'B60205',
+                  description: 'Automated security scan findings',
+                });
+                core.info(`Created label "${LABEL}".`);
+              }
+            }
+
+            // Fixed title plus the label, with pagination so an existing issue beyond the first
+            // page is still found (otherwise a duplicate would be opened).
+            const openIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: LABEL, per_page: 100,
+            });
+            const existing = openIssues.find(i => i.title === TITLE && !i.pull_request);
+
+            if (hc > 0) {
+              if (!existing) {
+                await ensureLabel();
+                const created = await github.rest.issues.create({
+                  owner, repo, title: TITLE, body, labels: [LABEL],
+                });
+                core.notice(`Opened security issue #${created.data.number} (${hc} High/Critical).`);
+              } else {
+                const previous = (existing.body || '').match(/<!-- signature: (.*?) -->/);
+                await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
+                if (!previous || previous[1] !== signature) {
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: existing.number,
+                    body: `Counts changed on ${today}: ${hc} High/Critical findings.\n\n${table}\n\nRun: ${runUrl}`,
+                  });
+                }
+                core.notice(`Updated security issue #${existing.number} (${hc} High/Critical).`);
+              }
+            } else if (existing) {
+              if (incomplete) {
+                // Zero counts from incomplete reports are not proof that the issue is resolved.
+                await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
+                core.warning(`Left issue #${existing.number} open: reports were missing.`);
+              } else {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: existing.number,
+                  body: `No High/Critical findings on ${today}. Closing. Run: ${runUrl}`,
+                });
+                await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
+                core.notice(`Closed security issue #${existing.number}: no High/Critical findings.`);
+              }
+            } else {
+              core.info('No High/Critical findings and no open security issue; nothing to do.');
+            }
