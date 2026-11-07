@@ -235,7 +235,73 @@ func TestOSExecerRealProcess(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
+	begin := time.Now()
 	if _, err := (OSExecer{}).Run(ctx, "sleep", []string{"5"}, nil); err == nil {
 		t.Fatal("cancelled context must abort the process")
+	}
+	if d := time.Since(begin); d > 3*time.Second {
+		t.Fatalf("process was not killed on cancel (took %v)", d)
+	}
+}
+
+func TestOSExecerStdoutLimit(t *testing.T) {
+	e := OSExecer{MaxStdoutBytes: 1024}
+	begin := time.Now()
+	// Endless output: must be killed once the cap is exceeded.
+	_, err := e.Run(context.Background(), "sh", []string{"-c", "yes"}, nil)
+	if !errors.Is(err, ErrOutputLimit) || !strings.Contains(err.Error(), "output exceeds limit") {
+		t.Fatalf("want ErrOutputLimit, got %v", err)
+	}
+	if time.Since(begin) > 5*time.Second {
+		t.Fatal("process not killed when limit exceeded")
+	}
+	// At or under the cap is fine.
+	out, err := e.Run(context.Background(), "sh", []string{"-c", "printf abc"}, nil)
+	if err != nil || string(out) != "abc" {
+		t.Fatalf("under limit: %q %v", out, err)
+	}
+}
+
+func TestOSExecerStderrCapped(t *testing.T) {
+	_, err := (OSExecer{}).Run(context.Background(), "sh", []string{"-c", "head -c 300000 /dev/zero | tr '\\0' x >&2; exit 1"}, nil)
+	if err == nil {
+		t.Fatal("want error")
+	}
+	if len(err.Error()) > maxStderrBytes+1024 {
+		t.Fatalf("stderr not capped: error is %d bytes", len(err.Error()))
+	}
+}
+
+func TestOSExecerGrandchildHoldingPipeDoesNotHang(t *testing.T) {
+	old := execWaitDelay
+	execWaitDelay = 200 * time.Millisecond
+	defer func() { execWaitDelay = old }()
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	begin := time.Now()
+	_, err := (OSExecer{}).Run(ctx, "sh", []string{"-c", "sleep 30 & sleep 30"}, nil)
+	if err == nil {
+		t.Fatal("want error")
+	}
+	if d := time.Since(begin); d > 5*time.Second {
+		t.Fatalf("Run blocked on inherited pipe for %v", d)
+	}
+}
+
+func TestScanFailureIsSanitized(t *testing.T) {
+	r := NewCLIRunner(CLIOptions{Path: "/opt/secret/grype"})
+	r.Exec = &fakeExec{err: errors.New("run /opt/secret/grype: exit status 1: stderr: db is corrupt")}
+	_, err := r.Scan(context.Background(), basicReq(""))
+	if err == nil || !strings.Contains(err.Error(), "db is corrupt") {
+		t.Fatalf("full error must keep detail for logs, got %v", err)
+	}
+	if got := PublicMessage(err, "x"); got != "grype scan failed" {
+		t.Fatalf("public = %q", got)
+	}
+	r.Opts.Timeout = 20 * time.Millisecond
+	r.Exec = &fakeExec{delay: time.Minute}
+	_, err = r.Scan(context.Background(), basicReq(""))
+	if got := PublicMessage(err, "x"); got != "grype scan failed: timed out after 20ms" {
+		t.Fatalf("public = %q", got)
 	}
 }

@@ -20,6 +20,40 @@ import (
 	"github.com/TechPrototyper/harbor-scanner-grype/pkg/job"
 )
 
+// HTTP server timeouts. These are values chosen for this adapter, not
+// taken from any standard.
+const (
+	// readHeaderTimeout guards against slowloris-style clients.
+	readHeaderTimeout = 10 * time.Second
+	// readTimeout bounds reading the whole request; Harbor's request body
+	// is capped at 1 MiB.
+	readTimeout = 30 * time.Second
+	// writeTimeout bounds writing the response; the largest response is an
+	// SPDX SBOM document, and report 302 responses return immediately
+	// (no long-poll).
+	writeTimeout = 60 * time.Second
+	// idleTimeout bounds keep-alive idle time; Harbor reuses connections.
+	idleTimeout = 120 * time.Second
+
+	// dbTimestampTTL bounds how stale the /metadata vulnerability-database
+	// timestamp can be when grype auto-updates its DB. /metadata polling is
+	// infrequent, and the TTL bounds how often grype is forked to read it.
+	dbTimestampTTL = 5 * time.Minute
+)
+
+// Shutdown budgets. These are values chosen for this adapter. Worst case is
+// scanDrainTimeout + the 5s post-cancel grace inside api.Server.Shutdown +
+// httpShutdownTimeout = 35s, which must fit inside the chart's
+// terminationGracePeriodSeconds (default 45) with a margin.
+const (
+	// scanDrainTimeout bounds how long in-flight scans may finish after a
+	// shutdown signal before they are cancelled.
+	scanDrainTimeout = 25 * time.Second
+	// httpShutdownTimeout bounds finishing in-flight HTTP responses once
+	// scans are drained.
+	httpShutdownTimeout = 5 * time.Second
+)
+
 func main() {
 	cfg, err := config.Load(os.Getenv)
 	if err != nil {
@@ -39,6 +73,13 @@ func main() {
 		DBAutoUpdate:    cfg.DBAutoUpdate,
 	})
 
+	sbomGen := grype.NewSyftRunner(grype.SyftOptions{
+		Path:            cfg.SyftPath,
+		Timeout:         cfg.ScanTimeout,
+		InsecureSkipTLS: cfg.InsecureSkipTLS,
+		UseHTTP:         cfg.UseHTTP,
+	})
+
 	scanner := harbor.Scanner{Name: "Grype", Vendor: "Anchore"}
 	version, dbBuilt, err := runner.Version(context.Background())
 	if err != nil {
@@ -48,24 +89,41 @@ func main() {
 		logger.Info("grype ready", "version", version, "db_built_at", dbBuilt.UTC().Format(time.RFC3339))
 	}
 
-	var dbUpdatedAt func() time.Time
-	if !dbBuilt.IsZero() {
-		dbUpdatedAt = func() time.Time { return dbBuilt }
-	}
+	// The scanner version is read once above; only the DB timestamp is
+	// refreshed (TTL-cached) so /metadata follows DB auto-updates.
+	dbCache := grype.NewDBTimeCache(grype.DBTimeCacheOptions{
+		Fetch: func(ctx context.Context) (time.Time, error) {
+			_, built, err := runner.Version(ctx)
+			return built, err
+		},
+		TTL:    dbTimestampTTL,
+		Logger: logger,
+	})
+	dbCache.Prime(dbBuilt)
 
-	handler := api.New(api.Options{
+	apiServer := api.New(api.Options{
 		Scanner:       scanner,
 		RefreshAfter:  15,
-		DBUpdatedAt:   dbUpdatedAt,
+		DBUpdatedAt:   dbCache.Get,
 		MapperOptions: grype.MapperOptions{PreferCVE: cfg.PreferCVE},
 		Logger:        logger,
-	}, store, runner)
 
+		WorkerConcurrency: cfg.WorkerConcurrency,
+	}, store, runner, sbomGen)
+
+	stopCleanup := make(chan struct{})
 	if cfg.JobTTL > 0 && cfg.CleanupInterval > 0 {
-		go runCleanupTicker(cfg.CleanupInterval, func() int { return store.Cleanup(cfg.JobTTL) }, logger)
+		go runCleanupTicker(cfg.CleanupInterval, func() int { return store.Cleanup(cfg.JobTTL) }, logger, stopCleanup)
 	}
 
-	server := &http.Server{Addr: cfg.Addr, Handler: handler}
+	server := &http.Server{
+		Addr:              cfg.Addr,
+		Handler:           apiServer,
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+	}
 	errCh := make(chan error, 1)
 	go func() { errCh <- server.ListenAndServe() }()
 
@@ -75,9 +133,20 @@ func main() {
 	select {
 	case <-ctx.Done():
 		logger.Info("shutdown signal received")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
+		close(stopCleanup)
+		// Drain scans first: the closing flag makes new POSTs return 503 while
+		// the HTTP listener keeps serving GET /report, /metadata and probes,
+		// so Harbor can still collect results of scans being drained.
+		drainCtx, cancelDrain := context.WithTimeout(context.Background(), scanDrainTimeout)
+		defer cancelDrain()
+		if err := apiServer.Shutdown(drainCtx); err != nil {
+			logger.Warn("scans did not finish before the shutdown deadline; interrupted", "error", err.Error())
+		}
+		// Then stop the listener with its own short budget so in-flight HTTP
+		// responses can finish.
+		httpCtx, cancelHTTP := context.WithTimeout(context.Background(), httpShutdownTimeout)
+		defer cancelHTTP()
+		if err := server.Shutdown(httpCtx); err != nil {
 			logger.Error("graceful shutdown failed; forcing close", "error", err.Error())
 			_ = server.Close()
 		}
@@ -105,12 +174,18 @@ func logLevel(level string) slog.Level {
 }
 
 // runCleanupTicker removes expired Finished/Failed jobs every interval.
-func runCleanupTicker(interval time.Duration, cleanup func() int, log *slog.Logger) {
+// It returns when stop is closed.
+func runCleanupTicker(interval time.Duration, cleanup func() int, log *slog.Logger, stop <-chan struct{}) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	for range ticker.C {
-		if removed := cleanup(); removed > 0 {
-			log.Info("cleaned up jobs", "removed", removed)
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			if removed := cleanup(); removed > 0 {
+				log.Info("cleaned up jobs", "removed", removed)
+			}
 		}
 	}
 }

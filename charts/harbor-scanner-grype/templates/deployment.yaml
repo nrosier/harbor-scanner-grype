@@ -28,6 +28,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       serviceAccountName: {{ include "harbor-scanner-grype.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
@@ -84,4 +85,9 @@ spec:
             {{- include "harbor-scanner-grype.dbMount" . | nindent 12 }}
       volumes:
         - name: grype-db
+          {{- with .Values.dbCacheSizeLimit }}
+          emptyDir:
+            sizeLimit: {{ . | quote }}
+          {{- else }}
           emptyDir: {}
+          {{- end }}

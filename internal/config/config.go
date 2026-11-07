@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -12,6 +13,7 @@ import (
 const (
 	keyAddr            = "SCANNER_API_ADDR"
 	keyGrypePath       = "SCANNER_GRYPE_PATH"
+	keySyftPath        = "SCANNER_SYFT_PATH"
 	keyScanTimeout     = "SCANNER_SCAN_TIMEOUT"
 	keyJobTTL          = "SCANNER_JOB_TTL"
 	keyCleanupInterval = "SCANNER_CLEANUP_INTERVAL"
@@ -20,12 +22,14 @@ const (
 	keyDBAutoUpdate    = "SCANNER_GRYPE_DB_AUTO_UPDATE"
 	keyPreferCVE       = "SCANNER_PREFER_CVE"
 	keyLogLevel        = "SCANNER_LOG_LEVEL"
+	keyWorkerConc      = "SCANNER_WORKER_CONCURRENCY"
 )
 
 // Config of the adapter process.
 type Config struct {
 	Addr            string        // SCANNER_API_ADDR, default ":8080"
 	GrypePath       string        // SCANNER_GRYPE_PATH, default "grype"
+	SyftPath        string        // SCANNER_SYFT_PATH, default "syft"
 	ScanTimeout     time.Duration // SCANNER_SCAN_TIMEOUT, default 5m
 	JobTTL          time.Duration // SCANNER_JOB_TTL, default 1h; 0 disables cleanup
 	CleanupInterval time.Duration // SCANNER_CLEANUP_INTERVAL, default 5m
@@ -34,6 +38,10 @@ type Config struct {
 	DBAutoUpdate    bool          // SCANNER_GRYPE_DB_AUTO_UPDATE, default false
 	PreferCVE       bool          // SCANNER_PREFER_CVE, default true
 	LogLevel        string        // SCANNER_LOG_LEVEL, default "info" (debug|info|warn|error)
+
+	// WorkerConcurrency is SCANNER_WORKER_CONCURRENCY, default 2, >= 1:
+	// the maximum number of Grype/Syft subprocesses running at once.
+	WorkerConcurrency int
 }
 
 // Getenv is the lookup function; tests override it. Empty string means unset.
@@ -46,11 +54,14 @@ func Load(getenv Getenv) (Config, error) {
 	c := Config{
 		Addr:            ":8080",
 		GrypePath:       "grype",
+		SyftPath:        "syft",
 		ScanTimeout:     5 * time.Minute,
 		JobTTL:          time.Hour,
 		CleanupInterval: 5 * time.Minute,
 		PreferCVE:       true,
 		LogLevel:        "info",
+
+		WorkerConcurrency: 2,
 	}
 
 	if v := getenv(keyAddr); v != "" {
@@ -58,6 +69,10 @@ func Load(getenv Getenv) (Config, error) {
 	}
 	if v := getenv(keyGrypePath); v != "" {
 		c.GrypePath = v
+	}
+
+	if v := getenv(keySyftPath); v != "" {
+		c.SyftPath = v
 	}
 
 	durations := []struct {
@@ -109,6 +124,14 @@ func Load(getenv Getenv) (Config, error) {
 		default:
 			return Config{}, fmt.Errorf("%s: invalid level %q (want debug|info|warn|error)", keyLogLevel, v)
 		}
+	}
+
+	if v := getenv(keyWorkerConc); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			return Config{}, fmt.Errorf("%s: invalid value %q (want an integer >= 1)", keyWorkerConc, v)
+		}
+		c.WorkerConcurrency = n
 	}
 
 	return c, nil
