@@ -6,7 +6,7 @@
 replicaCount: 1
 
 image:
-  repository: harbor-scanner-grype
+  repository: ghcr.io/nrosier/harbor-scanner-grype
   pullPolicy: IfNotPresent
   # Overrides the appVersion when set.
   tag: ""

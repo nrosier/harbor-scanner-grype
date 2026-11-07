@@ -76,6 +76,16 @@ and the legacy `application/vnd.scanner.adapter.vuln.report.harbor+json; version
 
 ### Helm
 
+Released images are published to `ghcr.io/nrosier/harbor-scanner-grype`, and the chart
+defaults to it (tag = chart `appVersion`), so no image override is needed:
+
+```sh
+helm install harbor-scanner-grype ./charts/harbor-scanner-grype \
+  --namespace harbor
+```
+
+To use your own registry, override the image:
+
 ```sh
 helm install harbor-scanner-grype ./charts/harbor-scanner-grype \
   --namespace harbor \
@@ -84,6 +94,15 @@ helm install harbor-scanner-grype ./charts/harbor-scanner-grype \
 ```
 
 ### Container
+
+Released images are published to `ghcr.io/nrosier/harbor-scanner-grype` as multi-arch
+(linux/amd64 and linux/arm64) manifests, for example `0.2.0`:
+
+```sh
+docker pull ghcr.io/nrosier/harbor-scanner-grype:0.2.0
+```
+
+To build locally instead:
 
 ```sh
 docker build -t harbor-scanner-grype:dev .
@@ -175,6 +194,12 @@ CycloneDX is not produced because Harbor does not consume it.
 Not yet covered: SBOM ingestion (Harbor can hand over an SBOM instead of a reference),
 horizontal scaling (the job store is in-memory, so run one replica), and a Grype DB volume
 shared between restarts.
+
+## Releasing
+
+Maintainers: bump `version` and `appVersion` in `charts/harbor-scanner-grype/Chart.yaml`, merge
+to `main`, then push a tag `vX.Y.Z`. The release workflow verifies the tag equals the chart
+version, runs the tests, pushes the multi-arch image to ghcr.io and creates the GitHub release.
 
 ## Provenance
 
