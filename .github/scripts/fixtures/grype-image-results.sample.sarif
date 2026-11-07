@@ -1,0 +1,289 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "grype",
+          "version": "0.121.2",
+          "informationUri": "https://github.com/anchore/grype",
+          "rules": [
+            {
+              "id": "GO-2026-6888-github.com/andybalholm/brotli",
+              "name": "GoModuleMatcherExactDirectMatch",
+              "shortDescription": {
+                "text": "GO-2026-6888 critical vulnerability for github.com/andybalholm/brotli package"
+              },
+              "fullDescription": {
+                "text": "In github.com/andybalholm/brotli before v1.2.7, the decompressor allocates memory for Huffman tables and block-type trees on every meta-block header without bounding the cumulative allocations relative to the input size. A small crafted brotli stream containing many empty meta-blocks with new Huffman trees can trigger hundreds of megabytes of allocations per kilobyte of input, leading to denial of service."
+              },
+              "helpUri": "https://github.com/andybalholm/brotli/security/advisories/GHSA-c9gr-gmg4-2vqv",
+              "help": {
+                "text": "Vulnerability GO-2026-6888\nSeverity: critical\nPackage: github.com/andybalholm/brotli\nVersion: v1.2.0\nFix Version: 1.2.7\nType: go-module\nLocation: /usr/bin/syft\nData Namespace: govulndb:language:go\nLink: [GO-2026-6888](https://github.com/andybalholm/brotli/security/advisories/GHSA-c9gr-gmg4-2vqv)",
+                "markdown": "**Vulnerability GO-2026-6888**\n| Severity | Package | Version | Fix Version | Type | Location | Data Namespace | Link |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| critical  | github.com/andybalholm/brotli  | v1.2.0  | 1.2.7  | go-module  | /usr/bin/syft  | govulndb:language:go  | [GO-2026-6888](https://github.com/andybalholm/brotli/security/advisories/GHSA-c9gr-gmg4-2vqv)  |\n"
+              },
+              "properties": {
+                "purls": [
+                  "pkg:golang/github.com/andybalholm/brotli@v1.2.0"
+                ],
+                "security-severity": "9.8"
+              }
+            },
+            {
+              "id": "GO-2026-4887-github.com/docker/docker",
+              "name": "GoModuleMatcherExactDirectMatch",
+              "shortDescription": {
+                "text": "GO-2026-4887 high vulnerability for github.com/docker/docker package"
+              },
+              "fullDescription": {
+                "text": "Moby has AuthZ plugin bypass when provided oversized request bodies in github.com/docker/docker"
+              },
+              "helpUri": "https://github.com/moby/moby/security/advisories/GHSA-x744-4wpc-v9h2",
+              "help": {
+                "text": "Vulnerability GO-2026-4887\nSeverity: high\nPackage: github.com/docker/docker\nVersion: v28.5.2+incompatible\nFix Version: \nType: go-module\nLocation: /usr/bin/grype\nData Namespace: govulndb:language:go\nLink: [GO-2026-4887](https://github.com/moby/moby/security/advisories/GHSA-x744-4wpc-v9h2)",
+                "markdown": "**Vulnerability GO-2026-4887**\n| Severity | Package | Version | Fix Version | Type | Location | Data Namespace | Link |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| high  | github.com/docker/docker  | v28.5.2+incompatible  |   | go-module  | /usr/bin/grype  | govulndb:language:go  | [GO-2026-4887](https://github.com/moby/moby/security/advisories/GHSA-x744-4wpc-v9h2)  |\n"
+              },
+              "properties": {
+                "purls": [
+                  "pkg:golang/github.com/docker/docker@v28.5.2%2Bincompatible"
+                ],
+                "security-severity": "8.8"
+              }
+            },
+            {
+              "id": "GO-2026-6218-stdlib",
+              "name": "GoModuleMatcherExactDirectMatch",
+              "shortDescription": {
+                "text": "GO-2026-6218 medium vulnerability for stdlib package"
+              },
+              "fullDescription": {
+                "text": "Previously, resolving relative paths containing parent directory ('..') segments performed string conversions and buffer rewrites on each step, resulting in quadratic time complexity and high memory allocation overhead.\n\nNow, path resolution operates on a byte buffer using index-based backtracking for '..' segments, eliminating the quadratic time complexity and significantly reducing memory allocations."
+              },
+              "helpUri": "https://go.dev/cl/803681",
+              "help": {
+                "text": "Vulnerability GO-2026-6218\nSeverity: medium\nPackage: stdlib\nVersion: go1.24.13\nFix Version: 1.25.13,1.26.6,1.27.0-rc.3\nType: go-module\nLocation: /adapter\nData Namespace: govulndb:language:go\nLink: [GO-2026-6218](https://go.dev/cl/803681)",
+                "markdown": "**Vulnerability GO-2026-6218**\n| Severity | Package | Version | Fix Version | Type | Location | Data Namespace | Link |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| medium  | stdlib  | go1.24.13  | 1.25.13,1.26.6,1.27.0-rc.3  | go-module  | /adapter  | govulndb:language:go  | [GO-2026-6218](https://go.dev/cl/803681)  |\n"
+              },
+              "properties": {
+                "purls": [
+                  "pkg:golang/stdlib@1.24.13"
+                ],
+                "security-severity": "5.9"
+              }
+            },
+            {
+              "id": "GHSA-m7cr-m3pv-hgrp-github.com/go-git/go-git/v5",
+              "name": "GoModuleMatcherExactDirectMatch",
+              "shortDescription": {
+                "text": "GHSA-m7cr-m3pv-hgrp low vulnerability for github.com/go-git/go-git/v5 package"
+              },
+              "fullDescription": {
+                "text": "go-git: Improper single-quote escaping in go-git SSH transport"
+              },
+              "helpUri": "https://github.com/advisories/GHSA-m7cr-m3pv-hgrp",
+              "help": {
+                "text": "Vulnerability GHSA-m7cr-m3pv-hgrp\nSeverity: low\nPackage: github.com/go-git/go-git/v5\nVersion: v5.18.0\nFix Version: 5.19.1\nType: go-module\nLocation: /usr/bin/grype\nData Namespace: github:language:go\nLink: [GHSA-m7cr-m3pv-hgrp](https://github.com/advisories/GHSA-m7cr-m3pv-hgrp)",
+                "markdown": "**Vulnerability GHSA-m7cr-m3pv-hgrp**\n| Severity | Package | Version | Fix Version | Type | Location | Data Namespace | Link |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| low  | github.com/go-git/go-git/v5  | v5.18.0  | 5.19.1  | go-module  | /usr/bin/grype  | github:language:go  | [GHSA-m7cr-m3pv-hgrp](https://github.com/advisories/GHSA-m7cr-m3pv-hgrp)  |\n"
+              },
+              "properties": {
+                "purls": [
+                  "pkg:golang/github.com/go-git/go-git/v5@v5.18.0"
+                ],
+                "security-severity": "2.3"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "GO-2026-6888-github.com/andybalholm/brotli",
+          "level": "error",
+          "message": {
+            "text": "A critical vulnerability in go-module package: github.com/andybalholm/brotli, version v1.2.0 was found in image ghcr.io/nrosier/harbor-scanner-grype at: /usr/bin/syft"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "//usr/bin/syft"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "/usr/bin/syft",
+                  "fullyQualifiedName": "ghcr.io/nrosier/harbor-scanner-grype@sha256:e4f59f1ac6841c6f76dd063148c50d3018c8c19a4220e16f0c93f8baff89338a:/usr/bin/syft"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "899ae1b9944522288b19e7535d75ed419e2788ef3f1d7d73ba257fb60e4640d2:1"
+          }
+        },
+        {
+          "ruleId": "GO-2026-6888-github.com/andybalholm/brotli",
+          "level": "error",
+          "message": {
+            "text": "A critical vulnerability in go-module package: github.com/andybalholm/brotli, version v1.2.0 was found in image ghcr.io/nrosier/harbor-scanner-grype at: /usr/bin/grype"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "//usr/bin/grype"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "/usr/bin/grype",
+                  "fullyQualifiedName": "ghcr.io/nrosier/harbor-scanner-grype@sha256:9bd75b73116c9b83b6bd5aaa6effd95d1ed4cdc46884e0002733942afb24af4d:/usr/bin/grype"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "abda334b3f2f4df563d151b798cbc08deb17f5bbc1297347ce4dc610001688aa:1"
+          }
+        },
+        {
+          "ruleId": "GO-2026-4887-github.com/docker/docker",
+          "level": "error",
+          "message": {
+            "text": "A high vulnerability in go-module package: github.com/docker/docker, version v28.5.2+incompatible was found in image ghcr.io/nrosier/harbor-scanner-grype at: /usr/bin/grype"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "//usr/bin/grype"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "/usr/bin/grype",
+                  "fullyQualifiedName": "ghcr.io/nrosier/harbor-scanner-grype@sha256:9bd75b73116c9b83b6bd5aaa6effd95d1ed4cdc46884e0002733942afb24af4d:/usr/bin/grype"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "c6e03090ab02b5afbd9c76ddf2e1fb872121483694ce295c15e2d2fc32a95402:1"
+          }
+        },
+        {
+          "ruleId": "GO-2026-6218-stdlib",
+          "level": "warning",
+          "message": {
+            "text": "A medium vulnerability in go-module package: stdlib, version go1.24.13 was found in image ghcr.io/nrosier/harbor-scanner-grype at: /adapter"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "//adapter"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "/adapter",
+                  "fullyQualifiedName": "ghcr.io/nrosier/harbor-scanner-grype@sha256:3719c012ed085bd51a4b9da07a902580855d2331be4aa6d793a224907a1cd858:/adapter"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "5144de6f0c092b3afa2e7d2469d578e412a48492e0aa62f903427eaedaf17a6f:1"
+          }
+        },
+        {
+          "ruleId": "GO-2026-6218-stdlib",
+          "level": "warning",
+          "message": {
+            "text": "A medium vulnerability in go-module package: stdlib, version go1.26.2 was found in image ghcr.io/nrosier/harbor-scanner-grype at: /usr/bin/grype"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "//usr/bin/grype"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "/usr/bin/grype",
+                  "fullyQualifiedName": "ghcr.io/nrosier/harbor-scanner-grype@sha256:9bd75b73116c9b83b6bd5aaa6effd95d1ed4cdc46884e0002733942afb24af4d:/usr/bin/grype"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "ed1443948e6b7313cbf99b7a53b90fac060c765267a4b9ea5a24f777c40618d6:1"
+          }
+        },
+        {
+          "ruleId": "GHSA-m7cr-m3pv-hgrp-github.com/go-git/go-git/v5",
+          "level": "note",
+          "message": {
+            "text": "A low vulnerability in go-module package: github.com/go-git/go-git/v5, version v5.18.0 was found in image ghcr.io/nrosier/harbor-scanner-grype at: /usr/bin/grype"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "//usr/bin/grype"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "/usr/bin/grype",
+                  "fullyQualifiedName": "ghcr.io/nrosier/harbor-scanner-grype@sha256:9bd75b73116c9b83b6bd5aaa6effd95d1ed4cdc46884e0002733942afb24af4d:/usr/bin/grype"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "390fe06fad711f60a1fdfa6b04120c0437b84b7b62698689a3f055590816af98:1"
+          }
+        }
+      ]
+    }
+  ]
+}

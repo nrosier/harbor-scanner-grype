@@ -1,0 +1,357 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "fullName": "Trivy Vulnerability Scanner",
+          "informationUri": "https://github.com/aquasecurity/trivy",
+          "name": "Trivy",
+          "rules": [
+            {
+              "id": "CVE-2026-111943",
+              "name": "LanguageSpecificPackageVulnerability",
+              "shortDescription": {
+                "text": "crypto/x509: golang: crypto/x509: Man-in-the-middle attacks via untrusted intermediate certificates"
+              },
+              "fullDescription": {
+                "text": "On most platforms, Go uses the given system root certificates. However, in some narrower cases, the system trust stores may not be updated without further action. To defend against the narrower set of cases that may remain affected, a denylist was added in crypto/x509 to return an error when calling Verify with any of the known intermediate certificates that are no longer considered to be trustworthy."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://avd.aquasec.com/nvd/cve-2026-111943",
+              "help": {
+                "text": "Vulnerability CVE-2026-111943\nSeverity: HIGH\nPackage: stdlib\nFixed Version: 1.26.10, 1.27.3\nLink: [CVE-2026-111943](https://avd.aquasec.com/nvd/cve-2026-111943)\nOn most platforms, Go uses the given system root certificates. However, in some narrower cases, the system trust stores may not be updated without further action. To defend against the narrower set of cases that may remain affected, a denylist was added in crypto/x509 to return an error when calling Verify with any of the known intermediate certificates that are no longer considered to be trustworthy.",
+                "markdown": "**Vulnerability CVE-2026-111943**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|stdlib|1.26.10, 1.27.3|[CVE-2026-111943](https://avd.aquasec.com/nvd/cve-2026-111943)|\n\nOn most platforms, Go uses the given system root certificates. However, in some narrower cases, the system trust stores may not be updated without further action. To defend against the narrower set of cases that may remain affected, a denylist was added in crypto/x509 to return an error when calling Verify with any of the known intermediate certificates that are no longer considered to be trustworthy."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "8.0",
+                "tags": [
+                  "vulnerability",
+                  "security",
+                  "HIGH"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-25679",
+              "name": "LanguageSpecificPackageVulnerability",
+              "shortDescription": {
+                "text": "net/url: Incorrect parsing of IPv6 host literals in net/url"
+              },
+              "fullDescription": {
+                "text": "url.Parse insufficiently validated the host/authority component and accepted some invalid URLs."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://avd.aquasec.com/nvd/cve-2026-25679",
+              "help": {
+                "text": "Vulnerability CVE-2026-25679\nSeverity: HIGH\nPackage: stdlib\nFixed Version: 1.25.8, 1.26.1\nLink: [CVE-2026-25679](https://avd.aquasec.com/nvd/cve-2026-25679)\nurl.Parse insufficiently validated the host/authority component and accepted some invalid URLs.",
+                "markdown": "**Vulnerability CVE-2026-25679**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|stdlib|1.25.8, 1.26.1|[CVE-2026-25679](https://avd.aquasec.com/nvd/cve-2026-25679)|\n\nurl.Parse insufficiently validated the host/authority component and accepted some invalid URLs."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "8.0",
+                "tags": [
+                  "vulnerability",
+                  "security",
+                  "HIGH"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-27145",
+              "name": "LanguageSpecificPackageVulnerability",
+              "shortDescription": {
+                "text": "crypto/x509: golang: golang crypto/x509: Denial of Service via excessive processing of DNS SAN entries"
+              },
+              "fullDescription": {
+                "text": "(*x509.Certificate).VerifyHostname previously called matchHostnames in a loop over all DNS Subject Alternative Name (SAN) entries. This caused strings.Split(host, \".\") to execute repeatedly on the same input hostname. With a large DNS SAN list, verification costs scaled quadratically based on the number of SAN entries multiplied by the hostname's label count. Because x509.Verify validates hostnames before building the certificate chain, this overhead occurred even for untrusted certificates."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://avd.aquasec.com/nvd/cve-2026-27145",
+              "help": {
+                "text": "Vulnerability CVE-2026-27145\nSeverity: HIGH\nPackage: stdlib\nFixed Version: 1.25.11, 1.26.4\nLink: [CVE-2026-27145](https://avd.aquasec.com/nvd/cve-2026-27145)\n(*x509.Certificate).VerifyHostname previously called matchHostnames in a loop over all DNS Subject Alternative Name (SAN) entries. This caused strings.Split(host, \".\") to execute repeatedly on the same input hostname. With a large DNS SAN list, verification costs scaled quadratically based on the number of SAN entries multiplied by the hostname's label count. Because x509.Verify validates hostnames before building the certificate chain, this overhead occurred even for untrusted certificates.",
+                "markdown": "**Vulnerability CVE-2026-27145**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|HIGH|stdlib|1.25.11, 1.26.4|[CVE-2026-27145](https://avd.aquasec.com/nvd/cve-2026-27145)|\n\n(*x509.Certificate).VerifyHostname previously called matchHostnames in a loop over all DNS Subject Alternative Name (SAN) entries. This caused strings.Split(host, \".\") to execute repeatedly on the same input hostname. With a large DNS SAN list, verification costs scaled quadratically based on the number of SAN entries multiplied by the hostname's label count. Because x509.Verify validates hostnames before building the certificate chain, this overhead occurred even for untrusted certificates."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "8.0",
+                "tags": [
+                  "vulnerability",
+                  "security",
+                  "HIGH"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-27142",
+              "name": "LanguageSpecificPackageVulnerability",
+              "shortDescription": {
+                "text": "html/template: URLs in meta content attribute actions are not escaped in html/template"
+              },
+              "fullDescription": {
+                "text": "Actions which insert URLs into the content attribute of HTML meta tags are not escaped. This can allow XSS if the meta tag also has an http-equiv attribute with the value \"refresh\". A new GODEBUG setting has been added, htmlmetacontenturlescape, which can be used to disable escaping URLs in actions in the meta content attribute which follow \"url=\" by setting htmlmetacontenturlescape=0."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://avd.aquasec.com/nvd/cve-2026-27142",
+              "help": {
+                "text": "Vulnerability CVE-2026-27142\nSeverity: MEDIUM\nPackage: stdlib\nFixed Version: 1.25.8, 1.26.1\nLink: [CVE-2026-27142](https://avd.aquasec.com/nvd/cve-2026-27142)\nActions which insert URLs into the content attribute of HTML meta tags are not escaped. This can allow XSS if the meta tag also has an http-equiv attribute with the value \"refresh\". A new GODEBUG setting has been added, htmlmetacontenturlescape, which can be used to disable escaping URLs in actions in the meta content attribute which follow \"url=\" by setting htmlmetacontenturlescape=0.",
+                "markdown": "**Vulnerability CVE-2026-27142**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|MEDIUM|stdlib|1.25.8, 1.26.1|[CVE-2026-27142](https://avd.aquasec.com/nvd/cve-2026-27142)|\n\nActions which insert URLs into the content attribute of HTML meta tags are not escaped. This can allow XSS if the meta tag also has an http-equiv attribute with the value \"refresh\". A new GODEBUG setting has been added, htmlmetacontenturlescape, which can be used to disable escaping URLs in actions in the meta content attribute which follow \"url=\" by setting htmlmetacontenturlescape=0."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "5.5",
+                "tags": [
+                  "vulnerability",
+                  "security",
+                  "MEDIUM"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-32282",
+              "name": "LanguageSpecificPackageVulnerability",
+              "shortDescription": {
+                "text": "golang: internal/syscall/unix: Root.Chmod can follow symlinks out of the root"
+              },
+              "fullDescription": {
+                "text": "On Linux, if the target of Root.Chmod is replaced with a symlink while the chmod operation is in progress, Chmod can operate on the target of the symlink, even when the target lies outside the root. The Linux fchmodat syscall silently ignores the AT_SYMLINK_NOFOLLOW flag, which Root.Chmod uses to avoid symlink traversal. Root.Chmod checks its target before acting and returns an error if the target is a symlink lying outside the root, so the impact is limited to cases where the target is replaced with a symlink between the check and operation."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://avd.aquasec.com/nvd/cve-2026-32282",
+              "help": {
+                "text": "Vulnerability CVE-2026-32282\nSeverity: MEDIUM\nPackage: stdlib\nFixed Version: 1.25.9, 1.26.2\nLink: [CVE-2026-32282](https://avd.aquasec.com/nvd/cve-2026-32282)\nOn Linux, if the target of Root.Chmod is replaced with a symlink while the chmod operation is in progress, Chmod can operate on the target of the symlink, even when the target lies outside the root. The Linux fchmodat syscall silently ignores the AT_SYMLINK_NOFOLLOW flag, which Root.Chmod uses to avoid symlink traversal. Root.Chmod checks its target before acting and returns an error if the target is a symlink lying outside the root, so the impact is limited to cases where the target is replaced with a symlink between the check and operation.",
+                "markdown": "**Vulnerability CVE-2026-32282**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|MEDIUM|stdlib|1.25.9, 1.26.2|[CVE-2026-32282](https://avd.aquasec.com/nvd/cve-2026-32282)|\n\nOn Linux, if the target of Root.Chmod is replaced with a symlink while the chmod operation is in progress, Chmod can operate on the target of the symlink, even when the target lies outside the root. The Linux fchmodat syscall silently ignores the AT_SYMLINK_NOFOLLOW flag, which Root.Chmod uses to avoid symlink traversal. Root.Chmod checks its target before acting and returns an error if the target is a symlink lying outside the root, so the impact is limited to cases where the target is replaced with a symlink between the check and operation."
+              },
+              "properties": {
+                "cvssv3_baseScore": 6.4,
+                "cvssv3_vector": "CVSS:3.1/AV:L/AC:H/PR:H/UI:N/S:U/C:H/I:H/A:H",
+                "precision": "very-high",
+                "security-severity": "6.4",
+                "tags": [
+                  "vulnerability",
+                  "security",
+                  "MEDIUM"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-27139",
+              "name": "LanguageSpecificPackageVulnerability",
+              "shortDescription": {
+                "text": "os: FileInfo can escape from a Root in golang os module"
+              },
+              "fullDescription": {
+                "text": "On Unix platforms, when listing the contents of a directory using File.ReadDir or File.Readdir the returned FileInfo could reference a file outside of the Root in which the File was opened. The impact of this escape is limited to reading metadata provided by lstat from arbitrary locations on the filesystem without permitting reading or writing files outside the root."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "helpUri": "https://avd.aquasec.com/nvd/cve-2026-27139",
+              "help": {
+                "text": "Vulnerability CVE-2026-27139\nSeverity: LOW\nPackage: stdlib\nFixed Version: 1.25.8, 1.26.1\nLink: [CVE-2026-27139](https://avd.aquasec.com/nvd/cve-2026-27139)\nOn Unix platforms, when listing the contents of a directory using File.ReadDir or File.Readdir the returned FileInfo could reference a file outside of the Root in which the File was opened. The impact of this escape is limited to reading metadata provided by lstat from arbitrary locations on the filesystem without permitting reading or writing files outside the root.",
+                "markdown": "**Vulnerability CVE-2026-27139**\n| Severity | Package | Fixed Version | Link |\n| --- | --- | --- | --- |\n|LOW|stdlib|1.25.8, 1.26.1|[CVE-2026-27139](https://avd.aquasec.com/nvd/cve-2026-27139)|\n\nOn Unix platforms, when listing the contents of a directory using File.ReadDir or File.Readdir the returned FileInfo could reference a file outside of the Root in which the File was opened. The impact of this escape is limited to reading metadata provided by lstat from arbitrary locations on the filesystem without permitting reading or writing files outside the root."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "2.0",
+                "tags": [
+                  "vulnerability",
+                  "security",
+                  "LOW"
+                ]
+              }
+            }
+          ],
+          "version": "0.76.2"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CVE-2026-111943",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "Package: stdlib\nInstalled Version: v1.24.13\nVulnerability CVE-2026-111943\nSeverity: HIGH\nFixed Version: 1.26.10, 1.27.3\nLink: [CVE-2026-111943](https://avd.aquasec.com/nvd/cve-2026-111943)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "adapter",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "adapter: stdlib@v1.24.13"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-25679",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Package: stdlib\nInstalled Version: v1.24.13\nVulnerability CVE-2026-25679\nSeverity: HIGH\nFixed Version: 1.25.8, 1.26.1\nLink: [CVE-2026-25679](https://avd.aquasec.com/nvd/cve-2026-25679)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "adapter",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "adapter: stdlib@v1.24.13"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-27145",
+          "ruleIndex": 2,
+          "level": "error",
+          "message": {
+            "text": "Package: stdlib\nInstalled Version: v1.24.13\nVulnerability CVE-2026-27145\nSeverity: HIGH\nFixed Version: 1.25.11, 1.26.4\nLink: [CVE-2026-27145](https://avd.aquasec.com/nvd/cve-2026-27145)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "adapter",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "adapter: stdlib@v1.24.13"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-27142",
+          "ruleIndex": 23,
+          "level": "warning",
+          "message": {
+            "text": "Package: stdlib\nInstalled Version: v1.24.13\nVulnerability CVE-2026-27142\nSeverity: MEDIUM\nFixed Version: 1.25.8, 1.26.1\nLink: [CVE-2026-27142](https://avd.aquasec.com/nvd/cve-2026-27142)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "adapter",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "adapter: stdlib@v1.24.13"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-32282",
+          "ruleIndex": 24,
+          "level": "warning",
+          "message": {
+            "text": "Package: stdlib\nInstalled Version: v1.24.13\nVulnerability CVE-2026-32282\nSeverity: MEDIUM\nFixed Version: 1.25.9, 1.26.2\nLink: [CVE-2026-32282](https://avd.aquasec.com/nvd/cve-2026-32282)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "adapter",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "adapter: stdlib@v1.24.13"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-27139",
+          "ruleIndex": 41,
+          "level": "note",
+          "message": {
+            "text": "Package: stdlib\nInstalled Version: v1.24.13\nVulnerability CVE-2026-27139\nSeverity: LOW\nFixed Version: 1.25.8, 1.26.1\nLink: [CVE-2026-27139](https://avd.aquasec.com/nvd/cve-2026-27139)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "adapter",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "adapter: stdlib@v1.24.13"
+              }
+            }
+          ]
+        }
+      ],
+      "columnKind": "utf16CodeUnits",
+      "properties": {
+        "imageID": "sha256:0c6bf04be38cf0babe5f79a66236f0c5d7d67ff22907edae90b887c98d773c7b",
+        "imageName": "ghcr.io/nrosier/harbor-scanner-grype:latest",
+        "repoDigests": [
+          "ghcr.io/nrosier/harbor-scanner-grype@sha256:844a5df5479045a5424a3662a3f4fcafd0be9a317a24d44d6edf947e1d7a9ba3"
+        ],
+        "repoTags": [
+          "ghcr.io/nrosier/harbor-scanner-grype:latest"
+        ]
+      }
+    }
+  ]
+}
