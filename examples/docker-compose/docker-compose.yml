@@ -1,0 +1,48 @@
+# Example: run harbor-scanner-grype next to Harbor's docker-compose stack.
+#
+# Harbor's installer writes its own docker-compose.yml (project "harbor", one
+# network named "harbor" in that file, which Compose creates as "harbor_harbor").
+# Either merge the `grype-adapter` service and the `grype-db` volume below into
+# that file, or run this file as a second Compose project that joins the
+# existing network (this file does the latter; see the README).
+#
+# Register the adapter in Harbor as http://grype-adapter:8080 with
+# "Use internal registry address" checked.
+services:
+  grype-adapter:
+    image: ${GRYPE_ADAPTER_IMAGE:-ghcr.io/nrosier/harbor-scanner-grype:0.2.0}
+    container_name: grype-adapter
+    restart: always
+    environment:
+      # Harbor's internal registry address is plain HTTP inside the stack.
+      SCANNER_REGISTRY_USE_HTTP: ${SCANNER_REGISTRY_USE_HTTP:-true}
+      # How often the DB is refreshed after the startup update (0 = only at start).
+      SCANNER_DB_UPDATE_INTERVAL: ${SCANNER_DB_UPDATE_INTERVAL:-24h}
+      SCANNER_LOG_LEVEL: info
+    volumes:
+      # The image owns /var/lib/grype/db as UID 65532; a new named volume
+      # inherits that, so no chown step is needed. The DB (about 1 GB
+      # compressed, several GB on disk) survives restarts and image upgrades.
+      - grype-db:/var/lib/grype/db
+    networks:
+      - harbor
+    # The image is distroless: no shell and no curl, so the probe is the
+    # adapter binary itself. It GETs /readyz and exits 0 only on 200, which
+    # means "healthy" here includes "has a vulnerability DB".
+    healthcheck:
+      test: ["CMD", "/adapter", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # The first start downloads the DB; failures in this window do not count.
+      start_period: 10m
+
+volumes:
+  grype-db:
+
+networks:
+  harbor:
+    # Harbor's network. If you merge into Harbor's own compose file, delete
+    # this block and use the file's existing `harbor` network instead.
+    external: true
+    name: ${HARBOR_NETWORK:-harbor_harbor}
