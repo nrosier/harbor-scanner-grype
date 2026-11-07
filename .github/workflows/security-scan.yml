@@ -57,7 +57,7 @@ jobs:
         id: grype-scan
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
-          sbom: "sbom.cyclonedx.json"
+          sbom: "does-not-exist-isolation-test.json"
           fail-build: false
           output-format: "sarif"
           output-file: "grype-results.sarif"
