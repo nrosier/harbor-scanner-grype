@@ -54,9 +54,14 @@ type VulnerabilityMetadata struct {
 	CWEs        []CWE    `json:"cwes,omitempty"`
 }
 
+// CWE is one entry of a vulnerability's "cwes" list. Grype emits the CWE
+// identifier under "cwe" (e.g. "CWE-843"), next to the CVE it was assigned
+// to, the reporting source and a Primary/Secondary type.
 type CWE struct {
-	ID     string `json:"id"`
+	CVE    string `json:"cve,omitempty"`
+	CWE    string `json:"cwe"`
 	Source string `json:"source,omitempty"`
+	Type   string `json:"type,omitempty"`
 }
 
 type Cvss struct {

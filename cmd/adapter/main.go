@@ -87,7 +87,7 @@ func main() {
 	})
 
 	scanner := harbor.Scanner{Name: "Grype", Vendor: "Anchore"}
-	// The DB build time is not part of `grype version -o json` in v0.112.0;
+	// The DB build time is not part of `grype version -o json` in v0.121.2;
 	// the updater reads it from `grype db status` and logs it.
 	version, _, err := runner.Version(context.Background())
 	if err != nil {
@@ -100,7 +100,7 @@ func main() {
 	// The scanner version is read once above; only the DB timestamp is
 	// refreshed (TTL-cached) so /metadata follows DB updates. The build time
 	// comes from `grype db status` ("grype version -o json" has no DB section
-	// in v0.112.0).
+	// in v0.121.2).
 	dbCache := grype.NewDBTimeCache(grype.DBTimeCacheOptions{
 		Fetch: func(ctx context.Context) (time.Time, error) {
 			st, err := runner.DBStatus(ctx)

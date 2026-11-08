@@ -6,7 +6,7 @@
   "documentNamespace": "https://anchore.com/syft/image/lib-app-00000000-0000-0000-0000-000000000000",
   "creationInfo": {
     "licenseListVersion": "3.27",
-    "creators": ["Organization: Anchore, Inc", "Tool: syft-1.44.0"],
+    "creators": ["Organization: Anchore, Inc", "Tool: syft-1.57.0"],
     "created": "2026-01-01T00:00:00Z"
   },
   "packages": [

@@ -21,11 +21,11 @@ RUN mkdir -p /out/var/lib/grype/db
 
 # Stage 2: minimal runtime. The grype and syft binaries ship verbatim from
 # the official Anchore images so upgrades are image rebuilds only. Syft is
-# pinned to the version Grype is built against (v0.112.0 links Syft v1.44.0).
+# pinned to the version Grype is built against (v0.121.2 links Syft v1.57.0).
 FROM gcr.io/distroless/static
 # the official images keep the binaries at /grype and /syft
-COPY --from=anchore/grype:v0.112.0 /grype /usr/bin/grype
-COPY --from=anchore/syft:v1.44.0 /syft /usr/bin/syft
+COPY --from=anchore/grype:v0.121.2 /grype /usr/bin/grype
+COPY --from=anchore/syft:v1.57.0 /syft /usr/bin/syft
 COPY --from=builder /out/adapter /adapter
 COPY --from=builder --chown=65532:65532 /out/var/lib/grype /var/lib/grype
 ENV SCANNER_GRYPE_PATH=/usr/bin/grype
