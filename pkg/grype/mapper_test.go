@@ -28,7 +28,7 @@ func loadFixture(t *testing.T) *Document {
 var testArtifact = harbor.Artifact{Repository: "lib/app", Digest: "sha256:0000", Tag: "1.0", MimeType: harbor.MimeTypeOCIArtifact}
 
 func newTestMapper() *Mapper {
-	m := NewMapper(harbor.Scanner{Name: "Grype", Vendor: "Anchore", Version: "0.112.0"})
+	m := NewMapper(harbor.Scanner{Name: "Grype", Vendor: "Anchore", Version: "0.121.2"})
 	m.Now = func() time.Time { return time.Date(2026, 9, 7, 10, 0, 0, 0, time.UTC) }
 	return m
 }
@@ -80,7 +80,7 @@ func TestMapEnvelope(t *testing.T) {
 	if rep.Artifact != testArtifact {
 		t.Errorf("artifact must be echoed, got %+v", rep.Artifact)
 	}
-	if rep.Scanner.Name != "Grype" || rep.Scanner.Version != "0.112.0" {
+	if rep.Scanner.Name != "Grype" || rep.Scanner.Version != "0.121.2" {
 		t.Errorf("scanner info wrong: %+v", rep.Scanner)
 	}
 	if !rep.GeneratedAt.Equal(time.Date(2026, 9, 7, 10, 0, 0, 0, time.UTC)) {
@@ -267,5 +267,64 @@ func TestPreferredCVSSFirstOfEachVersion(t *testing.T) {
 	b := findItem(t, rep, "CVE-2020-0002")
 	if b.PreferredCVSS == nil || b.PreferredCVSS.ScoreV3 != nil || b.PreferredCVSS.VectorV2 != "only-v2" {
 		t.Errorf("v2-only entry must fill the v2 slot only: %+v", b.PreferredCVSS)
+	}
+}
+
+// Regression: Grype emits CWEs as {"cve","cwe","source","type"} and lists the
+// same CWE once per source. The mapper used to read a non-existent "id" key,
+// which produced cwe_ids [""] for every real scan.
+func TestCweIDsDeduplicatedAndNonEmpty(t *testing.T) {
+	got := cweIDs([]CWE{
+		{CVE: "CVE-2024-6119", CWE: "CWE-843", Source: "openssl-security@openssl.org", Type: "Secondary"},
+		{CVE: "CVE-2024-6119", CWE: "CWE-843", Source: "nvd@nist.gov", Type: "Primary"},
+		{CWE: ""},
+		{CWE: "CWE-20"},
+	})
+	if len(got) != 2 || got[0] != "CWE-843" || got[1] != "CWE-20" {
+		t.Errorf("cweIDs = %q, want [CWE-843 CWE-20]", got)
+	}
+	if got := cweIDs(nil); got == nil || len(got) != 0 {
+		t.Errorf("cweIDs(nil) must be empty non-nil, got %#v", got)
+	}
+}
+
+// The fixture is a trimmed, unmodified-shape scan of alpine:3.18.4 produced
+// by Grype 0.121.2 (DB schema v6.1.10). It guards the mapper against the real
+// output schema, not just the hand-written sample.
+func TestMapRealGrype0121Output(t *testing.T) {
+	raw, err := os.ReadFile("testdata/grype-real-0.121.2.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc Document
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("real fixture must parse: %v", err)
+	}
+	if doc.Descriptor.Version != "0.121.2" || len(doc.Matches) != 3 {
+		t.Fatalf("fixture sanity: version %q, %d matches", doc.Descriptor.Version, len(doc.Matches))
+	}
+	rep := mustMap(t, newTestMapper(), &doc)
+	if len(rep.Vulnerabilities) != 3 || rep.Severity != harbor.SevCritical {
+		t.Fatalf("want 3 items and Critical, got %v / %s", ids(rep), rep.Severity)
+	}
+	crit := findItem(t, rep, "CVE-2024-5535")
+	if crit.Pkg != "libssl3" || crit.Severity != harbor.SevCritical || crit.FixVersion == "" {
+		t.Errorf("critical item wrong: %+v", crit)
+	}
+	if len(crit.CweIDs) != 1 || crit.CweIDs[0] == "" {
+		t.Errorf("real output must yield non-empty cwe ids, got %q", crit.CweIDs)
+	}
+	if crit.PreferredCVSS == nil {
+		t.Errorf("real output must yield a preferred CVSS")
+	}
+	for _, it := range rep.Vulnerabilities {
+		for _, c := range it.CweIDs {
+			if c == "" {
+				t.Errorf("%s has an empty cwe id", it.ID)
+			}
+		}
+	}
+	if db := doc.Descriptor.DB; db == nil {
+		t.Log("descriptor.db missing in real output")
 	}
 }

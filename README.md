@@ -97,10 +97,10 @@ helm install harbor-scanner-grype ./charts/harbor-scanner-grype \
 ### Container
 
 Released images are published to `ghcr.io/nrosier/harbor-scanner-grype` as multi-arch
-(linux/amd64 and linux/arm64) manifests, for example `0.2.0`:
+(linux/amd64 and linux/arm64) manifests, for example `0.3.0`:
 
 ```sh
-docker pull ghcr.io/nrosier/harbor-scanner-grype:0.2.0
+docker pull ghcr.io/nrosier/harbor-scanner-grype:0.3.0
 ```
 
 To build locally instead:
@@ -115,8 +115,8 @@ owned by UID 65532. Mount a volume there to keep the database across container r
 [Docker Compose](#docker-compose) and [Vulnerability database lifecycle](#vulnerability-database-lifecycle).
 
 The image ships the `grype` and `syft` binaries verbatim from the official Anchore images, so a
-Grype upgrade is an image rebuild, nothing else. Syft is pinned to v1.44.0, the version Grype
-v0.112.0 is built against; bump the two together.
+Grype upgrade is an image rebuild, nothing else. Syft is pinned to v1.57.0, the version Grype
+v0.121.2 is built against; bump the two together.
 
 ### Docker Compose
 

@@ -159,7 +159,7 @@ func TestScanParsesDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(doc.Matches) != 4 || doc.Descriptor.Version != "0.112.0" {
+	if len(doc.Matches) != 4 || doc.Descriptor.Version != "0.121.2" {
 		t.Fatalf("document not parsed: %d matches, version %q", len(doc.Matches), doc.Descriptor.Version)
 	}
 	if fe.gotName != "/opt/grype" || fe.calls != 1 {
@@ -198,13 +198,13 @@ func TestScanTimeout(t *testing.T) {
 
 func TestVersion(t *testing.T) {
 	r := NewCLIRunner(CLIOptions{})
-	fe := &fakeExec{stdout: []byte(`{"application":"grype","version":"0.112.0","gitCommit":"abc","supportedDbSchema":6,"db":{"built":"2026-09-06T01:31:12Z"}}`)}
+	fe := &fakeExec{stdout: []byte(`{"application":"grype","version":"0.121.2","gitCommit":"abc","supportedDbSchema":6,"db":{"built":"2026-09-06T01:31:12Z"}}`)}
 	r.Exec = fe
 	v, built, err := r.Version(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v != "0.112.0" {
+	if v != "0.121.2" {
 		t.Errorf("version = %q", v)
 	}
 	if !built.Equal(time.Date(2026, 9, 6, 1, 31, 12, 0, time.UTC)) {

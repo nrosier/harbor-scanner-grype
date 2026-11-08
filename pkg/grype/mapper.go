@@ -243,10 +243,21 @@ func preferredCVSS(cvss []Cvss) *harbor.CVSSDetails {
 	return &d
 }
 
+// cweIDs returns the distinct, non-empty CWE identifiers in order of first
+// appearance. Grype lists the same CWE once per reporting source (Primary
+// and Secondary), so duplicates are common.
 func cweIDs(cwes []CWE) []string {
 	ids := make([]string, 0, len(cwes))
+	seen := make(map[string]struct{}, len(cwes))
 	for _, c := range cwes {
-		ids = append(ids, c.ID)
+		if c.CWE == "" {
+			continue
+		}
+		if _, dup := seen[c.CWE]; dup {
+			continue
+		}
+		seen[c.CWE] = struct{}{}
+		ids = append(ids, c.CWE)
 	}
 	return ids
 }
