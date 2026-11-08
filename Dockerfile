@@ -2,7 +2,7 @@
 
 # Stage 1: build the adapter. Standard-library-only, so there is no
 # go.sum to vendor; CGO_ENABLED=0 produces a static binary.
-FROM golang:1.24 AS builder
+FROM golang:1.27.3 AS builder
 # TARGETOS/TARGETARCH are supplied by BuildKit; default to the classic
 # builder's linux/amd64 when they are not.
 ARG TARGETOS=linux
