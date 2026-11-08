@@ -34,7 +34,7 @@ const (
 // stderr, paths or credentials, so it is safe to hand to Harbor.
 const MsgDBUnavailable = "vulnerability database not available"
 
-// grypeDBLoadFailure is the stderr text Grype v0.112.0 prints when the
+// grypeDBLoadFailure is the stderr text Grype v0.121.2 prints when the
 // database cannot be loaded (cmd/grype/cli/commands/root.go, validateDBLoad).
 const grypeDBLoadFailure = "failed to load vulnerability db"
 

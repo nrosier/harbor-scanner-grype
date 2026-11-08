@@ -71,19 +71,19 @@ Dependency direction: `api -> job, grype, harbor`; `grype -> harbor`;
 
 ## Vulnerability database lifecycle
 
-Findings from Grype v0.112.0's source (`grype/db/v6/installation/curator.go`, tag v0.112.0) and from
-running the published image:
+Findings from Grype's source (`grype/db/v6/installation/curator.go`; researched at tag v0.112.0 and
+re-checked at v0.121.2, the bundled version) and from running the published image:
 
 * **`grype db update` is not atomic and takes no lock.** `Update()` -> `update()` downloads and
   unpacks into a temp directory `<cache>/grype-db-download*` (`distribution/client.go` `Download`),
-  hydrates it, then `activate()` -> `replaceDB()` does `RemoveAll(<cache>/6)` on the live directory
+  hydrates it, then `activate()` -> `replaceDB()` does `Delete()` -> `RemoveAll(<cache>/6)` on the live directory
   *and then* `Rename(tmp, <cache>/6)` (curator.go `replaceDB`, "remove any previous databases").
   Between the two calls there is no database; a killed process leaves the download directory
   behind. A grep for flock/lock files in the grype tree finds none used for the DB. Readers open the
   file with `immutable=1&mode=ro` (`grype/db/internal/gormadapter/open.go`), i.e. SQLite is told the
   file never changes, so a scan reading while the file is deleted/replaced can see errors or
   inconsistent pages. There is no safe concurrent mode; the adapter serialises (below).
-* **Environment variables** (from `grype config` of the v0.112.0 binary and `options/database.go`):
+* **Environment variables** (from `grype config` of the v0.121.2 binary and `options/database.go`):
   `GRYPE_DB_CACHE_DIR`, `GRYPE_DB_UPDATE_URL` (default `https://grype.anchore.io/databases`),
   `GRYPE_DB_AUTO_UPDATE` (default `true` in grype; the adapter always passes an explicit value to
   scans), `GRYPE_DB_VALIDATE_AGE` (default `true`), `GRYPE_DB_MAX_ALLOWED_BUILT_AGE` (default
@@ -94,11 +94,11 @@ running the published image:
 * **Cheap availability check: `grype db status -o json`.** Output
   `{"schemaVersion","from","built","path","valid":true}`, exit 0 with a usable DB; with none:
   `{"schemaVersion":"","path":".../6/vulnerability.db","valid":false,"error":"database does not exist"}`
-  and exit 1 (observed with the published image). It also reports a DB older than
+  and exit 1 (observed with the published image, v0.112.0 and v0.121.2). It also reports a DB older than
   `GRYPE_DB_MAX_ALLOWED_BUILT_AGE` or with a bad checksum as invalid. By default it hashes the whole
   DB file (about 3.4 GB on disk; several seconds), so the adapter sets
   `GRYPE_DB_VALIDATE_BY_HASH_ON_START=false` for its status calls; scans still validate on load.
-  `grype version -o json` has **no DB section** in v0.112.0 (`supportedDbSchema` only), so the
+  `grype version -o json` has **no DB section** in v0.112.0 or v0.121.2 (`supportedDbSchema` only), so the
   adapter's old `db.built` parse always yielded the zero time; the DB build time for `/metadata` now
   comes from `db status`.
 * **Default location without `GRYPE_DB_CACHE_DIR`:** `xdg.CacheHome/grype/db` (`installation.DefaultConfig`),
