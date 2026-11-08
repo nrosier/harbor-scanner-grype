@@ -4,8 +4,8 @@ description: >-
   Harbor Pluggable Scanner Adapter backed by the Grype CLI. Scans container
   images and reports OS package vulnerabilities to Harbor.
 type: application
-version: 0.3.0
-appVersion: "0.3.0"
+version: 0.3.1
+appVersion: "0.3.1"
 keywords:
   - harbor
   - scanner
