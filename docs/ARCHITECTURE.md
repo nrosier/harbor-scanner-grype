@@ -13,7 +13,7 @@ and Harbor upgrades without code changes.
 |---|---|
 | Go code is standard library only (`net/http`, `os/exec`, `encoding/json`, `log/slog`); the image bundles two external binaries, `grype` and `syft` | no Go dependency churn, fast builds, easy audit |
 | Grype via CLI (`grype registry:<ref> -o json`), not as a Go library | Grype's library API is not stable; the CLI JSON schema is versioned and documented; Grype upgrades = image rebuild |
-| SBOMs via Syft CLI (`syft registry:<ref> -o spdx-json`), SPDX only | Harbor only requests `application/spdx+json`; CycloneDX is not advertised. Syft is pinned to the version Grype is built against (Grype v0.112.0 / Syft v1.44.0) |
+| SBOMs via Syft CLI (`syft registry:<ref> -o spdx-json`), SPDX only | Harbor only requests `application/spdx+json`; CycloneDX is not advertised. Syft is pinned to the version Grype is built against (Grype v0.121.2 / Syft v1.57.0) |
 | In-memory job store, exactly one replica | Harbor polls the same adapter URL; a Redis store can be added behind `job.Store` later, the API does not change |
 | Registry credentials passed to grype via environment variables, never on argv | argv is visible in `ps`; env of a child process is not |
 | Prefer CVE identifiers over GHSA in reports | Harbor's CVE allowlist (the exception mechanism) matches on ID; a GHSA-only finding could not be waived |

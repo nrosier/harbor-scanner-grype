@@ -120,8 +120,8 @@ process, which then refreshes the database itself on each scan (this needs netwo
 Grype's database host).
 
 The image ships the `grype` and `syft` binaries verbatim from the official Anchore images, so a
-Grype upgrade is an image rebuild, nothing else. Syft is pinned to v1.44.0, the version Grype
-v0.112.0 is built against; bump the two together.
+Grype upgrade is an image rebuild, nothing else. Syft is pinned to v1.57.0, the version Grype
+v0.121.2 is built against; bump the two together.
 
 ## Register it in Harbor
 

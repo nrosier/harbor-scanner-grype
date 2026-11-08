@@ -87,7 +87,7 @@ func newServer(t *testing.T, fr *fakeRunner) *Server {
 func newServerSBOM(t *testing.T, fr *fakeRunner, fs *fakeSBOM) *Server {
 	t.Helper()
 	return New(Options{
-		Scanner:     harbor.Scanner{Name: "Grype", Vendor: "Anchore", Version: "0.112.0"},
+		Scanner:     harbor.Scanner{Name: "Grype", Vendor: "Anchore", Version: "0.121.2"},
 		DBUpdatedAt: func() time.Time { return time.Date(2026, 9, 6, 1, 31, 12, 0, time.UTC) },
 	}, job.NewMemoryStore(), fr, fs)
 }
@@ -152,7 +152,7 @@ func TestHealthz(t *testing.T) {
 }
 
 func TestMetadata(t *testing.T) {
-	s := newServer(t, &fakeRunner{version: "0.112.0"})
+	s := newServer(t, &fakeRunner{version: "0.121.2"})
 	rr := do(s, http.MethodGet, BasePath+"/metadata", nil, "")
 	if rr.Code != http.StatusOK {
 		t.Fatalf("metadata = %d %s", rr.Code, rr.Body.String())
@@ -160,7 +160,7 @@ func TestMetadata(t *testing.T) {
 	if ct := rr.Header().Get("Content-Type"); ct != harbor.MimeTypeMetadata {
 		t.Fatalf("content-type = %q", ct)
 	}
-	want := `{"scanner":{"name":"Grype","vendor":"Anchore","version":"0.112.0"},` +
+	want := `{"scanner":{"name":"Grype","vendor":"Anchore","version":"0.121.2"},` +
 		`"capabilities":[` +
 		`{"type":"vulnerability","consumes_mime_types":["application/vnd.oci.image.manifest.v1+json","application/vnd.docker.distribution.manifest.v2+json"],` +
 		`"produces_mime_types":["application/vnd.security.vulnerability.report; version=1.1","application/vnd.scanner.adapter.vuln.report.harbor+json; version=1.0"]},` +
@@ -177,14 +177,14 @@ func TestMetadata(t *testing.T) {
 
 func TestMetadataWithoutSBOMKeepsUntypedVulnerabilityCapability(t *testing.T) {
 	s := New(Options{
-		Scanner:     harbor.Scanner{Name: "Grype", Vendor: "Anchore", Version: "0.112.0"},
+		Scanner:     harbor.Scanner{Name: "Grype", Vendor: "Anchore", Version: "0.121.2"},
 		DBUpdatedAt: func() time.Time { return time.Date(2026, 9, 6, 1, 31, 12, 0, time.UTC) },
-	}, job.NewMemoryStore(), &fakeRunner{version: "0.112.0"}, nil)
+	}, job.NewMemoryStore(), &fakeRunner{version: "0.121.2"}, nil)
 	rr := do(s, http.MethodGet, BasePath+"/metadata", nil, "")
 	if rr.Code != http.StatusOK {
 		t.Fatalf("metadata = %d %s", rr.Code, rr.Body.String())
 	}
-	want := `{"scanner":{"name":"Grype","vendor":"Anchore","version":"0.112.0"},` +
+	want := `{"scanner":{"name":"Grype","vendor":"Anchore","version":"0.121.2"},` +
 		`"capabilities":[` +
 		`{"consumes_mime_types":["application/vnd.oci.image.manifest.v1+json","application/vnd.docker.distribution.manifest.v2+json"],` +
 		`"produces_mime_types":["application/vnd.security.vulnerability.report; version=1.1","application/vnd.scanner.adapter.vuln.report.harbor+json; version=1.0"]}],` +
@@ -458,7 +458,7 @@ func TestScanSBOMOnly(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &rep); err != nil {
 		t.Fatal(err)
 	}
-	if rep.MediaType != harbor.MediaTypeSPDX || rep.Scanner.Name != "Grype" || rep.Scanner.Version != "0.112.0" ||
+	if rep.MediaType != harbor.MediaTypeSPDX || rep.Scanner.Name != "Grype" || rep.Scanner.Version != "0.121.2" ||
 		rep.Artifact.Repository != "lib/app" || rep.Artifact.Digest != "sha256:0000" || rep.GeneratedAt.IsZero() {
 		t.Errorf("envelope = %+v", rep)
 	}

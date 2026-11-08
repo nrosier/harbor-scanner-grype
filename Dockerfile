@@ -17,11 +17,11 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
 
 # Stage 2: minimal runtime. The grype and syft binaries ship verbatim from
 # the official Anchore images so upgrades are image rebuilds only. Syft is
-# pinned to the version Grype is built against (v0.112.0 links Syft v1.44.0).
+# pinned to the version Grype is built against (v0.121.2 links Syft v1.57.0).
 FROM gcr.io/distroless/static
 # the official images keep the binaries at /grype and /syft
-COPY --from=anchore/grype:v0.112.0 /grype /usr/bin/grype
-COPY --from=anchore/syft:v1.44.0 /syft /usr/bin/syft
+COPY --from=anchore/grype:v0.121.2 /grype /usr/bin/grype
+COPY --from=anchore/syft:v1.57.0 /syft /usr/bin/syft
 COPY --from=builder /out/adapter /adapter
 ENV SCANNER_GRYPE_PATH=/usr/bin/grype
 ENV SCANNER_SYFT_PATH=/usr/bin/syft
