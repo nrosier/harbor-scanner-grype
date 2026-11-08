@@ -284,6 +284,11 @@ func (r *CLIRunner) Scan(ctx context.Context, req harbor.ScanRequest) (*Document
 	}
 	out, err := r.Exec.Run(scanCtx, r.Opts.Path, cmd.Args, cmd.Env)
 	if err != nil {
+		if isDBLoadFailure(err) && scanCtx.Err() == nil {
+			// The DB vanished or broke between the readiness check and the
+			// scan. The full error (stderr, paths) stays in the server log.
+			return nil, &Failure{Public: MsgDBUnavailable, Err: fmt.Errorf("grype scan: %w", err)}
+		}
 		return nil, publicFailure(scanCtx, "grype scan failed", r.Opts.Timeout, fmt.Errorf("grype scan: %w", err))
 	}
 	var doc Document

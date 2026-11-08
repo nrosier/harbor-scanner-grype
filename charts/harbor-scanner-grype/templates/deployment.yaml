@@ -32,8 +32,11 @@ spec:
       serviceAccountName: {{ include "harbor-scanner-grype.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      # Pull the Grype DB into the emptyDir before the adapter starts so the
-      # first scan does not pay the download.
+      # Pull the Grype DB into the emptyDir before the adapter starts, so the
+      # pod is ready (and the first scan runs) without waiting for the adapter's
+      # own background update. The adapter still refreshes the DB every
+      # config.dbUpdateInterval; the emptyDir is lost on pod restart, hence
+      # this init step.
       initContainers:
         - name: grype-db
           image: {{ include "harbor-scanner-grype.image" . }}
@@ -67,9 +70,13 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
+          # /readyz is 503 until a vulnerability DB is available and while the
+          # adapter drains on shutdown. The init container normally provides the
+          # DB, so this passes within seconds; if the DB is missing the pod stays
+          # NotReady instead of accepting scans that would fail.
           readinessProbe:
             httpGet:
-              path: {{ .Values.probePath }}
+              path: {{ .Values.readinessPath }}
               port: http
             initialDelaySeconds: 5
             periodSeconds: 5

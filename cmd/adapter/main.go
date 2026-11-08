@@ -52,9 +52,15 @@ const (
 	// httpShutdownTimeout bounds finishing in-flight HTTP responses once
 	// scans are drained.
 	httpShutdownTimeout = 5 * time.Second
+	// updaterStopTimeout bounds the wait for the cancelled DB updater (its
+	// child process is killed on cancel; WaitDelay is 5s).
+	updaterStopTimeout = 6 * time.Second
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == healthcheckCommand {
+		os.Exit(runHealthcheck(os.Getenv, os.Stdout, os.Stderr))
+	}
 	cfg, err := config.Load(os.Getenv)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config: %v\n", err)
@@ -81,35 +87,54 @@ func main() {
 	})
 
 	scanner := harbor.Scanner{Name: "Grype", Vendor: "Anchore"}
-	version, dbBuilt, err := runner.Version(context.Background())
+	// The DB build time is not part of `grype version -o json` in v0.112.0;
+	// the updater reads it from `grype db status` and logs it.
+	version, _, err := runner.Version(context.Background())
 	if err != nil {
 		logger.Warn("grype version unavailable", "error", err.Error())
 	} else {
 		scanner.Version = version
-		logger.Info("grype ready", "version", version, "db_built_at", dbBuilt.UTC().Format(time.RFC3339))
+		logger.Info("grype ready", "version", version)
 	}
 
 	// The scanner version is read once above; only the DB timestamp is
-	// refreshed (TTL-cached) so /metadata follows DB auto-updates.
+	// refreshed (TTL-cached) so /metadata follows DB updates. The build time
+	// comes from `grype db status` ("grype version -o json" has no DB section
+	// in v0.112.0).
 	dbCache := grype.NewDBTimeCache(grype.DBTimeCacheOptions{
 		Fetch: func(ctx context.Context) (time.Time, error) {
-			_, built, err := runner.Version(ctx)
-			return built, err
+			st, err := runner.DBStatus(ctx)
+			return st.Built, err
 		},
 		TTL:    dbTimestampTTL,
 		Logger: logger,
 	})
-	dbCache.Prime(dbBuilt)
+
+	// The updater downloads the DB at startup and refreshes it periodically,
+	// off the HTTP path; /readyz reports 503 until a DB is available. Scans
+	// are guarded so an update never replaces the DB under a running scan.
+	updater := grype.NewDBUpdater(grype.DBUpdaterOptions{
+		Manager:   runner,
+		Interval:  cfg.DBUpdateInterval,
+		CacheDir:  os.Getenv("GRYPE_DB_CACHE_DIR"),
+		OnUpdated: func(st grype.DBStatus) { dbCache.Prime(st.Built) },
+		Logger:    logger,
+	})
+	updaterCtx, stopUpdater := context.WithCancel(context.Background())
+	defer stopUpdater()
+	updaterDone := make(chan struct{})
+	go func() { defer close(updaterDone); updater.Run(updaterCtx) }()
 
 	apiServer := api.New(api.Options{
 		Scanner:       scanner,
 		RefreshAfter:  15,
 		DBUpdatedAt:   dbCache.Get,
+		DBReady:       updater.Ready,
 		MapperOptions: grype.MapperOptions{PreferCVE: cfg.PreferCVE},
 		Logger:        logger,
 
 		WorkerConcurrency: cfg.WorkerConcurrency,
-	}, store, runner, sbomGen)
+	}, store, updater.Guard(runner), sbomGen)
 
 	stopCleanup := make(chan struct{})
 	if cfg.JobTTL > 0 && cfg.CleanupInterval > 0 {
@@ -134,6 +159,9 @@ func main() {
 	case <-ctx.Done():
 		logger.Info("shutdown signal received")
 		close(stopCleanup)
+		// Cancel an in-flight DB update first: it holds the scan gate, and
+		// scans queued behind it would otherwise miss the drain budget.
+		stopUpdater()
 		// Drain scans first: the closing flag makes new POSTs return 503 while
 		// the HTTP listener keeps serving GET /report, /metadata and probes,
 		// so Harbor can still collect results of scans being drained.
@@ -155,6 +183,12 @@ func main() {
 			logger.Error("server error", "error", err.Error())
 			os.Exit(1)
 		}
+	}
+	stopUpdater()
+	select {
+	case <-updaterDone:
+	case <-time.After(updaterStopTimeout):
+		logger.Warn("DB updater did not stop in time")
 	}
 	logger.Info("stopped")
 }

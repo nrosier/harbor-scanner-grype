@@ -30,9 +30,13 @@ const maxBodyBytes = 1 << 20
 
 // Options for the server.
 type Options struct {
-	Scanner       harbor.Scanner   // name/vendor/version reported in metadata and reports
-	RefreshAfter  int              // seconds for the Refresh-After header on 302 (default 15)
-	DBUpdatedAt   func() time.Time // for the metadata property; nil -> property omitted
+	Scanner      harbor.Scanner   // name/vendor/version reported in metadata and reports
+	RefreshAfter int              // seconds for the Refresh-After header on 302 (default 15)
+	DBUpdatedAt  func() time.Time // for the metadata property; nil -> property omitted
+	// DBReady reports whether a usable vulnerability database exists. It
+	// drives GET /readyz and the fail-fast check of vulnerability jobs.
+	// nil -> always ready (no DB management).
+	DBReady       func() bool
 	MapperOptions grype.MapperOptions
 	Logger        *slog.Logger // nil -> slog.Default()
 	// WorkerConcurrency bounds how many jobs (each one Grype or Syft
@@ -83,7 +87,10 @@ type Server struct {
 //	                           400 MimeTypeError when sbom_media_type is missing/unsupported
 //	                           501 MimeTypeError when Accept is unsupported
 //
-// and GET /healthz -> 200 "ok" (outside BasePath). Accept negotiation:
+// and, outside BasePath: GET /healthz -> 200 "ok" (liveness, never depends on
+// the DB); GET /readyz -> 200 "ok" when a vulnerability DB is available, else
+// 503 MimeTypeError (also 503 once Shutdown has begun, so the drain is visible
+// to orchestrators). Accept negotiation:
 // "", "*/*" and MimeTypeSecurityVulnReport -> MimeTypeSecurityVulnReport;
 // MimeTypeLegacyVulnReport -> MimeTypeLegacyVulnReport;
 // MimeTypeSecuritySBOMReport -> SBOM report (needs ?sbom_media_type=);
@@ -110,6 +117,7 @@ func New(opts Options, store job.Store, runner grype.Runner, sbom grype.SBOMGene
 	s.mux.HandleFunc("POST "+BasePath+"/scan", s.handleScan)
 	s.mux.HandleFunc("GET "+BasePath+"/scan/{id}/report", s.handleReport)
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
+	s.mux.HandleFunc("/readyz", s.handleReadyz)
 	return s
 }
 
@@ -166,6 +174,24 @@ func (s *Server) Metadata() harbor.ScannerAdapterMetadata {
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, "ok")
+}
+
+// dbReady is true when no DB check is configured or a usable DB exists.
+func (s *Server) dbReady() bool { return s.opts.DBReady == nil || s.opts.DBReady() }
+
+func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
+	s.mu.Lock()
+	closing := s.closing
+	s.mu.Unlock()
+	switch {
+	case closing:
+		s.writeError(w, http.StatusServiceUnavailable, "scanner is shutting down")
+	case !s.dbReady():
+		s.writeError(w, http.StatusServiceUnavailable, grype.MsgDBUnavailable)
+	default:
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, "ok")
+	}
 }
 
 func (s *Server) handleMetadata(w http.ResponseWriter, _ *http.Request) {
@@ -382,6 +408,13 @@ func (s *Server) runVulnJob(j *job.Job) {
 		return // the job was cleaned up before the scan started
 	}
 	log := s.jobLogger(j)
+	// Fail fast, before the image is pulled: without a DB Grype would
+	// catalogue the whole image first and only then fail.
+	if !s.dbReady() {
+		log.Error("scan failed", "error", "vulnerability database not available (no usable DB installed)")
+		_ = s.store.SetJobError(k, grype.MsgDBUnavailable)
+		return
+	}
 	log.Info("scan started")
 	start := time.Now()
 	doc, err := s.runner.Scan(s.baseCtx, j.Request)
