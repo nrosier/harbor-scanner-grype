@@ -15,8 +15,11 @@ image:
 service:
   port: 8080
 
-# Path the liveness/readiness probes hit.
+# Liveness probe path: always 200 while the process serves HTTP.
 probePath: /healthz
+# Readiness probe path: 503 until a vulnerability DB is available (and while
+# shutting down), then 200.
+readinessPath: /readyz
 
 # Where the Grype vulnerability database lives. Must be a writable emptyDir
 # so the DB (downloaded at startup) does not live on the read-only root FS.
@@ -35,6 +38,10 @@ config:
   registryInsecureSkipTLS: false
   registryUseHTTP: false
   grypeDBAutoUpdate: false
+  # How often the adapter runs `grype db update` after its startup update
+  # (SCANNER_DB_UPDATE_INTERVAL, Go duration). 0 disables the periodic refresh.
+  # The grype-db init container still seeds the DB before the adapter starts.
+  dbUpdateInterval: 24h
   preferCVE: true
   logLevel: info
   # Concurrent scan workers (SCANNER_WORKER_CONCURRENCY). Grype and Syft jobs

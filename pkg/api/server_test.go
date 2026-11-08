@@ -11,6 +11,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -675,4 +676,135 @@ func TestFailureIsolation(t *testing.T) {
 			t.Errorf("sbom = %d %s, want 200", rr.Code, rr.Body.String())
 		}
 	})
+}
+
+// --- readiness and fail-fast ---
+
+type countingRunner struct {
+	fakeRunner
+	scans int
+}
+
+func (c *countingRunner) Scan(ctx context.Context, req harbor.ScanRequest) (*grype.Document, error) {
+	c.scans++
+	return c.fakeRunner.Scan(ctx, req)
+}
+
+func TestReadyzFollowsDBAvailability(t *testing.T) {
+	var ready atomic.Bool
+	s := New(Options{DBReady: ready.Load}, job.NewMemoryStore(), &fakeRunner{}, newSBOM())
+
+	rr := do(s, http.MethodGet, "/readyz", nil, "")
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("readyz without DB = %d, want 503", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != harbor.MimeTypeError {
+		t.Fatalf("content-type = %q", ct)
+	}
+	var er harbor.ErrorResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &er); err != nil || er.Error.Message != grype.MsgDBUnavailable {
+		t.Fatalf("body %q: %v", rr.Body.String(), err)
+	}
+	if rr := do(s, http.MethodGet, "/healthz", nil, ""); rr.Code != http.StatusOK {
+		t.Fatalf("liveness must stay 200 without a DB, got %d", rr.Code)
+	}
+
+	ready.Store(true)
+	if rr := do(s, http.MethodGet, "/readyz", nil, ""); rr.Code != http.StatusOK {
+		t.Fatalf("readyz with DB = %d, want 200", rr.Code)
+	}
+}
+
+func TestReadyzWithoutDBCheckIsReady(t *testing.T) {
+	s := newServer(t, &fakeRunner{})
+	if rr := do(s, http.MethodGet, "/readyz", nil, ""); rr.Code != http.StatusOK {
+		t.Fatalf("readyz = %d", rr.Code)
+	}
+}
+
+func TestReadyzIs503WhileShuttingDown(t *testing.T) {
+	s := New(Options{DBReady: func() bool { return true }}, job.NewMemoryStore(), &fakeRunner{}, newSBOM())
+	if rr := do(s, http.MethodGet, "/readyz", nil, ""); rr.Code != http.StatusOK {
+		t.Fatalf("readyz = %d", rr.Code)
+	}
+	if err := s.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	rr := do(s, http.MethodGet, "/readyz", nil, "")
+	if rr.Code != http.StatusServiceUnavailable || !strings.Contains(rr.Body.String(), "shutting down") {
+		t.Fatalf("readyz while closing = %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := do(s, http.MethodGet, "/healthz", nil, ""); rr.Code != http.StatusOK {
+		t.Fatalf("healthz while closing = %d", rr.Code)
+	}
+}
+
+func TestVulnJobFailsFastWithoutDBButSBOMStillRuns(t *testing.T) {
+	runner := &countingRunner{fakeRunner: fakeRunner{doc: fixtureDoc(t)}}
+	s := New(Options{DBReady: func() bool { return false }}, job.NewMemoryStore(), runner, newSBOM())
+
+	body, _ := json.Marshal(harbor.ScanRequest{
+		Registry: harbor.Registry{URL: "https://harbor.example", Authorization: "Basic abc"},
+		Artifact: harbor.Artifact{Repository: "lib/app", Digest: "sha256:0000", MimeType: harbor.MimeTypeOCIArtifact},
+		EnabledCapabilities: []harbor.EnabledCapability{
+			{Type: harbor.CapabilityTypeVulnerability, ProducesMimeTypes: []string{harbor.MimeTypeSecurityVulnReport}},
+			{Type: harbor.CapabilityTypeSBOM, ProducesMimeTypes: []string{harbor.MimeTypeSecuritySBOMReport},
+				Parameters: &harbor.CapabilityAttributes{SBOMMediaTypes: []string{harbor.MediaTypeSPDX}}},
+		},
+	})
+	rr := do(s, http.MethodPost, BasePath+"/scan", body, "")
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("POST /scan = %d %s", rr.Code, rr.Body.String())
+	}
+	var resp harbor.ScanResponse
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+
+	vuln := waitFinished(t, s, resp.ID)
+	if vuln.Code != http.StatusInternalServerError {
+		t.Fatalf("vuln report = %d %s, want 500", vuln.Code, vuln.Body.String())
+	}
+	var er harbor.ErrorResponse
+	if err := json.Unmarshal(vuln.Body.Bytes(), &er); err != nil || er.Error.Message != "vulnerability database not available" {
+		t.Fatalf("body %q: %v", vuln.Body.String(), err)
+	}
+	if runner.scans != 0 {
+		t.Fatalf("the Grype runner was called %d times; it must not be called without a DB", runner.scans)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		sb := do(s, http.MethodGet, BasePath+"/scan/"+resp.ID+"/report?sbom_media_type=application%2Fspdx%2Bjson", nil, harbor.MimeTypeSecuritySBOMReport)
+		if sb.Code == http.StatusOK {
+			break
+		}
+		if sb.Code != http.StatusFound || time.Now().After(deadline) {
+			t.Fatalf("sbom report = %d %s", sb.Code, sb.Body.String())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestVulnJobRunsOnceDBBecomesAvailable(t *testing.T) {
+	var ready atomic.Bool
+	runner := &countingRunner{fakeRunner: fakeRunner{doc: fixtureDoc(t)}}
+	s := New(Options{DBReady: ready.Load}, job.NewMemoryStore(), runner, newSBOM())
+	id := postScan(t, s)
+	if rr := waitFinished(t, s, id); rr.Code != http.StatusInternalServerError {
+		t.Fatalf("first scan = %d", rr.Code)
+	}
+	ready.Store(true)
+	id = postScan(t, s)
+	if rr := waitFinished(t, s, id); rr.Code != http.StatusOK {
+		t.Fatalf("second scan = %d %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestRunnerDBLoadFailureReachesHarborAsPublicMessage(t *testing.T) {
+	err := &grype.Failure{Public: grype.MsgDBUnavailable, Err: errors.New("grype scan: stderr: /home/nonroot/.cache failed to load vulnerability db")}
+	s := New(Options{DBReady: func() bool { return true }}, job.NewMemoryStore(), &fakeRunner{err: err}, newSBOM())
+	id := postScan(t, s)
+	rr := waitFinished(t, s, id)
+	if rr.Code != http.StatusInternalServerError || !strings.Contains(rr.Body.String(), grype.MsgDBUnavailable) || strings.Contains(rr.Body.String(), "/home/nonroot") {
+		t.Fatalf("report = %d %s", rr.Code, rr.Body.String())
+	}
 }

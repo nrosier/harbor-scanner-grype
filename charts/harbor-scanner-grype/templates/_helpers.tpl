@@ -89,6 +89,8 @@ Grype DB location env vars.
   value: {{ .Values.config.registryUseHTTP | quote }}
 - name: SCANNER_GRYPE_DB_AUTO_UPDATE
   value: {{ .Values.config.grypeDBAutoUpdate | quote }}
+- name: SCANNER_DB_UPDATE_INTERVAL
+  value: {{ .Values.config.dbUpdateInterval | quote }}
 - name: SCANNER_PREFER_CVE
   value: {{ .Values.config.preferCVE | quote }}
 - name: SCANNER_LOG_LEVEL
