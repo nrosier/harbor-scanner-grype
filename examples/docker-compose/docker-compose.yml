@@ -10,7 +10,7 @@
 # "Use internal registry address" checked.
 services:
   grype-adapter:
-    image: ${GRYPE_ADAPTER_IMAGE:-ghcr.io/nrosier/harbor-scanner-grype:0.2.0}
+    image: ${GRYPE_ADAPTER_IMAGE:-ghcr.io/nrosier/harbor-scanner-grype:0.3.0}
     container_name: grype-adapter
     restart: always
     environment:

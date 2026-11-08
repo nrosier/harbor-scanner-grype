@@ -97,10 +97,10 @@ helm install harbor-scanner-grype ./charts/harbor-scanner-grype \
 ### Container
 
 Released images are published to `ghcr.io/nrosier/harbor-scanner-grype` as multi-arch
-(linux/amd64 and linux/arm64) manifests, for example `0.2.0`:
+(linux/amd64 and linux/arm64) manifests, for example `0.3.0`:
 
 ```sh
-docker pull ghcr.io/nrosier/harbor-scanner-grype:0.2.0
+docker pull ghcr.io/nrosier/harbor-scanner-grype:0.3.0
 ```
 
 To build locally instead:
